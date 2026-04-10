@@ -7,20 +7,20 @@
 ![LLM](https://img.shields.io/badge/LLM-Spring_AI_/_LangChain4j-green.svg)
 ![License](https://img.shields.io/badge/License-MIT-lightgrey.svg)
 
-## 📖 Overview
+## Overview
 
 **AI-Scheduler** is an intelligent, automated academic scheduling agent designed to reduce the cognitive load of student planning. By seamlessly integrating with Learning Management Systems (LMS) like Canvas and leveraging Large Language Models (LLMs), it transforms unstructured syllabi and project descriptions into granular, actionable time-blocks with complex dependency tracking.
 
 Developed with robust enterprise-grade architecture, this project implements strict Object-Oriented Design (OOD) principles and an LLM Agent system to autonomously decompose tasks and optimize student calendars.
 
-## ✨ Core Features
+## Core Features
 
 * **Automated Data Ingestion:** Securely authenticates and fetches upcoming assignments and announcements via the Canvas LMS API.
 * **LLM-Driven Task Decomposition:** Utilizes an AI Agent to parse complex, unstructured project descriptions, breaking them down into fine-grained sub-tasks with estimated hours.
 * **Dependency Modeling:** Leverages a graph database (Neo4j) to map and traverse prerequisite relationships between sub-tasks (e.g., *UML Design* must precede *Code Implementation*).
 * **Dynamic Time-Blocking:** An algorithmic scheduler that maps generated sub-tasks into a user's free time slots, ensuring an optimized and conflict-free schedule.
 
-## 🏗️ System Architecture & Tech Stack
+## System Architecture & Tech Stack
 
 The backend is engineered using a scalable Java architecture, ensuring clear separation of concerns through interfaces and design patterns (e.g., Factory, Strategy).
 
@@ -30,7 +30,7 @@ The backend is engineered using a scalable Java architecture, ensuring clear sep
 * **Graph Database:** Neo4j (via Spring Data Neo4j) for efficient querying of complex task dependency chains.
 * **Documentation:** Comprehensive UML Class and Use Case diagrams are available in the `/docs` directory.
 
-## 🚀 Getting Started
+## Getting Started
 
 ### Prerequisites
 * Java Development Kit (JDK) 17 or higher
@@ -77,15 +77,15 @@ The backend is engineered using a scalable Java architecture, ensuring clear sep
     mvn spring-boot:run
     ```
 
-## 🗺️ Roadmap
+## Roadmap
 - [x] Canvas API Integration & Authentication (Spring WebClient)
 - [ ] LLM Agent Setup via Spring AI
 - [ ] Database Schema Definition & JPA Entity Mapping
 - [ ] Scheduling Algorithm Implementation
 - [ ] REST API endpoints for Frontend consumption
 
-## 🤝 Contributing
+## Contributing
 Contributions, issues, and feature requests are welcome! Feel free to check the [issues page](https://github.com/your-username/ai-scheduler/issues).
 
-## 📝 License
+## License
 This project is [MIT](https://choosealicense.com/licenses/mit/) licensed.
