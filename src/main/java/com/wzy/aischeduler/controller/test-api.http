@@ -1,0 +1,7 @@
+### 测试和 AI 聊天
+POST http://localhost:8081/api/ai/chat
+Content-Type: application/json
+
+{
+  "message": "你好，请问伊利诺伊大学香槟分校的计算机科学专业怎么样？"
+}

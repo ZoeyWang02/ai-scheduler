@@ -40,6 +40,31 @@ The backend is engineered using a scalable Java architecture, ensuring clear sep
 * Canvas LMS Developer Token
 * LLM API Key (e.g., OpenAI)
 
+### 📂 Project Structure
+
+This project follows a standard layered architecture (MVC) to ensure strict separation of concerns and scalability:
+
+```text
+ai-scheduler/
+├── README.md
+├── pom.xml                  <-- The Heart of Maven: Manages all third-party dependencies
+└── src/
+    ├── main/
+    │   ├── java/
+    │   │   └── com/yourname/aischeduler/
+    │   │       ├── AiSchedulerApplication.java  <-- The entry point to boot up the application
+    │   │       │
+    │   │       ├── controller/  <-- 🚪 The Facade: Handles incoming HTTP requests from the frontend
+    │   │       ├── service/     <-- 🧠 The Brain: Contains core business logic (LLM calls, scheduling)
+    │   │       ├── repository/  <-- 🗄️ The Data Layer: Interacts directly with PostgreSQL (JPA/SQL)
+    │   │       ├── entity/      <-- 🧬 The Entities: Maps directly to your database tables
+    │   │       ├── dto/         <-- 📦 The Delivery Boxes: Data Transfer Objects
+    │   │       └── config/      <-- ⚙️ The Configuration: Stores settings (CORS, AI API keys)
+    │   │
+    │   └── resources/
+    │       └── application.properties <-- Database credentials, server ports, and external API keys
+```
+
 ### Installation
 
 1.  **Clone the repository:**
