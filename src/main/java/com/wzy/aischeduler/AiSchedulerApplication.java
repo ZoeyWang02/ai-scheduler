@@ -17,8 +17,7 @@ public class AiSchedulerApplication {
     @Bean
     public CommandLineRunner run(DataImportService dataImportService) {
         return args -> {
-            System.out.println("🚀 程序已启动，开始导入 Canvas 数据...");
-            dataImportService.importCanvasData();
+            System.out.println("🚀 程序已启动，选择导入课程数据...");
         };
     }
 }

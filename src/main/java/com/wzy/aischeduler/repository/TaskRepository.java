@@ -4,7 +4,10 @@ import com.wzy.aischeduler.entity.Task;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
+import java.util.List;
+import java.util.Optional;
+
 @Repository
 public interface TaskRepository extends JpaRepository<Task, Long> {
-    // 暂时不需要写任何代码，Spring Data JPA 会帮你搞定一切
+    List<Task> findByTitle(String title);
 }
