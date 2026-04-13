@@ -14,7 +14,7 @@ public class AiController {
     private AiService aiService;
 
     /**
-     * 1. 静态测试接口 (GET 请求)
+     * 1. 静态测试接口 (GET 请求)dd
      * 可以在浏览器地址栏直接访问：http://localhost:8081/api/ai/test
      * 作用：测试 API Key 是否配置正确，网络是否畅通。
      */

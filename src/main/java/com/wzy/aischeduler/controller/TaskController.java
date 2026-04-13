@@ -28,7 +28,7 @@ public class TaskController {
     public List<TaskResponseDTO> getTasks(@RequestParam(defaultValue = "America/Chicago") String timezone) {
         return taskService.getAllTasksForUser(timezone);
     }
-    // 💡 上传 Canvas JSON
+    //上传 Canvas JSON
     @PostMapping("/upload/canvas")
     public ResponseEntity<String> uploadCanvas(@RequestParam("file") MultipartFile file) {
         try {
@@ -39,7 +39,7 @@ public class TaskController {
         }
     }
 
-    // 💡 上传 Coursera JSON
+    //上传 Coursera JSON
     @PostMapping("/upload/coursera")
     public ResponseEntity<String> uploadCoursera(@RequestParam("file") MultipartFile file) {
         try {
@@ -53,8 +53,19 @@ public class TaskController {
     @PostMapping
     public ResponseEntity<Task> createTask(@RequestBody Task task) {
         // 这里的 task 对象包含 title, description, dueDate 等
-        Task savedTask = TaskRepository.save(task);
+        Task savedTask = taskRepository.save(task);
         return ResponseEntity.ok(savedTask);
+    }
+
+    // 删除任务的接口
+    @DeleteMapping("/{id}")
+    public ResponseEntity<String> deleteTask(@PathVariable Long id) {
+        try {
+            taskRepository.deleteById(id);
+            return ResponseEntity.ok("任务已成功删除");
+        } catch (Exception e) {
+            return ResponseEntity.status(500).body("删除失败: " + e.getMessage());
+        }
     }
 
 }

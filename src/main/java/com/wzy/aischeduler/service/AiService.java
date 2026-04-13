@@ -8,6 +8,9 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestClient;
+
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -89,9 +92,17 @@ public class AiService {
                 .map(t -> "- " + t.getTitle() + " (截止日期: " + t.getDueDate() + ")")
                 .collect(Collectors.joining("\n"));
 
-        // 2. 构造更强大的系统提示词
-        String systemPrompt = "你是一个UIUC学术助理。以下是用户的课程作业信息：\n" + taskContext +
-                "\n\n请根据以上信息回答用户问题，如果用户问及作业建议，请给出具体的规划。";
+        String currentTime = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss"));
+
+        String systemPrompt = "你是一个UIUC的学术助理。以下是用户的课程作业：\n" + taskContext +
+                "\n\n现在的时间是：" + currentTime + "。" +
+                "\n请回答用户问题。如果用户要求拆解作业或制定计划，你必须在回复最后提供一个纯 JSON 数组，格式严格如下：\n" +
+                "[\n" +
+                "  {\"step\": \"第一步任务名称\", \"estimatedHours\": 2, \"suggestedDate\": \"2026-04-14T10:00:00\"},\n" +
+                "  {\"step\": \"第二步任务名称\", \"estimatedHours\": 3, \"suggestedDate\": \"2026-04-15T14:00:00\"}\n" +
+                "]\n" +
+                "注意：suggestedDate 必须是你结合当前时间和截止日期，推荐用户去做的具体时间（ISO 8601 格式）。" +
+                "如果是普通的闲聊，则正常回答文本即可。";
         // 2. 组装数据包 (注意这里把用户的 userMessage 塞进去了)
         Map<String, Object> requestBody = Map.of(
                 "model", model,

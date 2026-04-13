@@ -43,6 +43,7 @@ public class TaskService {
                 dto.setLocalDueDate("No Deadline");
             }
 
+            dto.setId(task.getId());
             return dto;
         }).collect(Collectors.toList());
     }
