@@ -1,4 +1,4 @@
-# Ai-Schedueler 🗓️🤖
+# Ai-Schedueler for Courses🗓️🤖
 
 > **Intelligent Academic Flow & Task Decomposition Engine**
 
