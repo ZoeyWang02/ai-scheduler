@@ -2,7 +2,7 @@
 
 > **Intelligent Academic Flow & Task Decomposition Engine**
 
-[![Java](https://img.shields.io/badge/Java-17+-orange.svg)](https://www.oracle.com/java/)
+[![Java](https://img.shields.io/badge/Java-21+-orange.svg)](https://www.oracle.com/java/)
 [![Spring Boot](https://img.shields.io/badge/Spring_Boot-3.x-brightgreen.svg)](https://spring.io/projects/spring-boot)
 [![PostgreSQL](https://img.shields.io/badge/PostgreSQL-15+-blue.svg)](https://www.postgresql.org/)
 [![LLM](https://img.shields.io/badge/LLM-GPT--4_/_Gemini-blueviolet.svg)](https://openai.com/)
@@ -26,7 +26,7 @@ By integrating **RESTful API ingestion** with **Large Language Models (LLMs)**, 
 
 The system follows a clean, layered **SDE-grade architecture** emphasizing the Open-Closed Principle:
 
-* **Backend:** Java 17 / Spring Boot 3.x
+* **Backend:** Java 21 / Spring Boot 3.x
 * **Persistence:** PostgreSQL (JPA/Hibernate) for robust relational data management.
 * **AI Integration:** Custom LLM orchestration using Spring RestClient for structured JSON output parsing.
 * **Frontend:** Modern "Glassmorphism" UI built with Vanilla JS, FullCalendar API, and Tippy.js for high-fidelity interaction.
