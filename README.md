@@ -10,7 +10,7 @@
 
 ## 🌟 Overview
 
-**[Project Name]** (formerly AI-Scheduler) is a high-performance, AI-native academic orchestration system. It is designed to solve the "complexity paralysis" students face when dealing with dense syllabi and multi-stage projects. 
+**Nexus.ai** (formerly AI-Scheduler) is a high-performance, AI-native academic orchestration system. It is designed to solve the "complexity paralysis" students face when dealing with dense syllabi and multi-stage projects. 
 
 By integrating **RESTful API ingestion** with **Large Language Models (LLMs)**, it doesn't just list tasks—it understands them, decomposes them into logical nodes, and maps them onto a dynamic, interactive calendar.
 
