@@ -1,5 +1,5 @@
-# Ai-Schedueler for Courses🗓️🤖
-
+# Nexus-Ai-Schedueler for Courses🗓️🤖
+## p人拯救计划————
 > **Intelligent Academic Flow & Task Decomposition Engine**
 
 [![Java](https://img.shields.io/badge/Java-21+-orange.svg)](https://www.oracle.com/java/)
