@@ -21,3 +21,6 @@ public class AiSchedulerApplication {
         };
     }
 }
+
+//TODO: 一开始导进去文件,就把任务全部分配完
+//TODO: 学习日常作息，个性定制，把课程时间也导入

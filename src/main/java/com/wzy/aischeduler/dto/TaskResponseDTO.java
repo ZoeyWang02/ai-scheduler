@@ -5,9 +5,11 @@ public class TaskResponseDTO {
     private String title;
     private String localDueDate; // 已经转换成 Urbana 时间的字符串
     private String description;
+    private String color;
 
     // 无参构造函数（Jackson 反序列化需要）
     public TaskResponseDTO() {}
+    
 
     // Getter 和 Setter
     public Long getId() { return id; }
@@ -22,5 +24,7 @@ public class TaskResponseDTO {
     public String getDescription() { return description; }
     public void setDescription(String description) { this.description = description; }
 
+    public String getColor() { return color; }
+    public void setColor(String color) { this.color = color; }
 
 }

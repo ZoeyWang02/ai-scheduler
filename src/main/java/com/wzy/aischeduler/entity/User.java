@@ -1,4 +1,5 @@
 package com.wzy.aischeduler.entity;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import java.time.LocalDateTime;
 
@@ -17,6 +18,13 @@ public class User {
     // 学生的邮箱，必须唯一且不能为空
     @Column(nullable = false, unique = true)
     private String email;
+
+    @Column(unique = true)
+    private String username;
+
+    @JsonIgnore
+    @Column(name = "password_hash")
+    private String passwordHash;
 
     private String name;
 
@@ -40,9 +48,78 @@ public class User {
     // 或者用更通用的偏移量
     private String utcOffset = "UTC-5";
 
-    // ==========================================
-    // 下面需要生成 Getters 和 Setters (这是 OOD 的封装特性)
-    // ==========================================
-    // 快捷操作：在 IntelliJ 里按 Alt+Insert (Windows) 或 Cmd+N (Mac)
-    // 选择 "Getter and Setter"，全选所有属性，点击 OK 自动生成！
+    public User() {
+    }
+
+    public Long getId() {
+        return id;
+    }
+
+    public void setId(Long id) {
+        this.id = id;
+    }
+
+    public String getEmail() {
+        return email;
+    }
+
+    public void setEmail(String email) {
+        this.email = email;
+    }
+
+    public String getUsername() {
+        return username;
+    }
+
+    public void setUsername(String username) {
+        this.username = username;
+    }
+
+    public String getPasswordHash() {
+        return passwordHash;
+    }
+
+    public void setPasswordHash(String passwordHash) {
+        this.passwordHash = passwordHash;
+    }
+
+    public String getName() {
+        return name;
+    }
+
+    public void setName(String name) {
+        this.name = name;
+    }
+
+    public String getCanvasToken() {
+        return canvasToken;
+    }
+
+    public void setCanvasToken(String canvasToken) {
+        this.canvasToken = canvasToken;
+    }
+
+    public LocalDateTime getCreatedAt() {
+        return createdAt;
+    }
+
+    public void setCreatedAt(LocalDateTime createdAt) {
+        this.createdAt = createdAt;
+    }
+
+    public String getTimezone() {
+        return timezone;
+    }
+
+    public void setTimezone(String timezone) {
+        this.timezone = timezone;
+    }
+
+    public String getUtcOffset() {
+        return utcOffset;
+    }
+
+    public void setUtcOffset(String utcOffset) {
+        this.utcOffset = utcOffset;
+    }
 }

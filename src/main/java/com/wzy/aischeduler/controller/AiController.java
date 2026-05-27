@@ -1,10 +1,16 @@
 package com.wzy.aischeduler.controller;
 
-import com.wzy.aischeduler.service.AiService;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.web.bind.annotation.*;
-
 import java.util.Map;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
+
+import com.wzy.aischeduler.service.AiService;
 
 @RestController
 @RequestMapping("/api/ai")
@@ -33,16 +39,31 @@ public class AiController {
      * 作用：接收前端或用户发送的动态消息，并返回 AI 的回答。
      */
     @PostMapping("/chat")
-    public String chatWithAi(@RequestBody Map<String, String> requestData) {
+    // 🌟 1. 修改返回值类型为 ResponseEntity<String>
+    public ResponseEntity<String> chatWithAi(@RequestBody Map<String, String> requestData) {
         // 从传进来的 JSON 数据包中，提取键名为 "message" 的值
         String userMessage = requestData.get("message");
+        Long userId = null;
+        if (requestData.get("userId") != null && !requestData.get("userId").isBlank()) {
+            userId = Long.parseLong(requestData.get("userId"));
+        }
+        String timezone = requestData.getOrDefault("timezone", "America/Chicago");
+        String lang = requestData.getOrDefault("lang", "en");
 
         // 如果前端发来的消息为空，给个友好的提示，防止程序报错
         if (userMessage == null || userMessage.trim().isEmpty()) {
-            return "提示：请在请求包中包含 'message' 字段。";
+            // 🌟 2. 这里的返回也要包一层 ResponseEntity (返回 400 Bad Request)
+            return ResponseEntity.badRequest().body("提示：请在请求包中包含 'message' 字段。");
         }
 
-        // 调用 AiService 的聊天方法，并把 AI 的回答返回出去
-        return aiService.chat(userMessage);
+        try {
+            // 将 lang 参数传递给 AiService (你需要同步修改 AiService.java 的方法签名)
+            String response = aiService.chat(userMessage, userId, timezone, lang);
+            return ResponseEntity.ok(response); // 这里就不会报错了
+        } catch (Exception e) {
+            return ResponseEntity.internalServerError().body("AI 服务异常: " + e.getMessage()); // 这里也不会报错了
+        }
     }
+
+    
 }

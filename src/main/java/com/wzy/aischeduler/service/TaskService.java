@@ -1,16 +1,14 @@
 package com.wzy.aischeduler.service;
 
-import com.wzy.aischeduler.dto.TaskResponseDTO;
-import com.wzy.aischeduler.entity.Task;
-import com.wzy.aischeduler.repository.TaskRepository;
+import java.time.format.DateTimeFormatter;
+import java.util.List;
+
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
-import java.time.ZoneId;
-import java.time.ZonedDateTime;
-import java.time.format.DateTimeFormatter;
-import java.util.List;
-import java.util.stream.Collectors;
+import com.wzy.aischeduler.dto.TaskResponseDTO;
+import com.wzy.aischeduler.entity.Task;
+import com.wzy.aischeduler.repository.TaskRepository;
 
 @Service
 public class TaskService {
@@ -21,30 +19,49 @@ public class TaskService {
     // 预设一个日期格式，让前端显示的更美观
     private static final DateTimeFormatter FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
 
-    public List<TaskResponseDTO> getAllTasksForUser(String userTimezone) {
+    public List<TaskResponseDTO> getAllTasksForUser(String userTimezone, Long userId) {
         // 1. 从数据库拿到原始的 Task 列表
-        List<Task> tasks = taskRepository.findAll();
+        List<Task> tasks = userId == null ? List.of() : taskRepository.findByUserId(userId);
 
         // 2. 将每个 Task 转换成 DTO
         return tasks.stream().map(task -> {
             TaskResponseDTO dto = new TaskResponseDTO();
             dto.setTitle(task.getTitle());
             dto.setDescription(task.getDescription());
+            dto.setColor(task.getColor());
 
             // --- 核心：时区转换 ---
             if (task.getDueDate() != null) {
-                // 假设数据库存的是 UTC，先给它穿上 UTC 的“外衣”
-                ZonedDateTime utcTime = task.getDueDate().atZone(ZoneId.of("UTC"));
-                // 转换为用户指定的时区（如 "America/Chicago"）
-                ZonedDateTime localTime = utcTime.withZoneSameInstant(ZoneId.of(userTimezone));
-                // 格式化为字符串存入 DTO
-                dto.setLocalDueDate(localTime.format(FORMATTER));
+                // 1. 明确数据库里取出来的时间，是服务器的本地系统时间 (对应写入时的 systemDefault)
+                java.time.ZoneId serverZone = java.time.ZoneId.systemDefault();
+                // 2. 明确前端想要展示的时间，是用户当前选择的时区
+                java.time.ZoneId userZone = java.time.ZoneId.of(userTimezone);
+
+                // 3. 将服务器时间转换回用户时区的时间
+                java.time.ZonedDateTime userTime = task.getDueDate()
+                        .atZone(serverZone)
+                        .withZoneSameInstant(userZone);
+
+                // 4. 格式化并塞回 DTO
+                dto.setLocalDueDate(userTime.format(FORMATTER));
             } else {
                 dto.setLocalDueDate("No Deadline");
             }
 
             dto.setId(task.getId());
             return dto;
-        }).collect(Collectors.toList());
+        }).collect(java.util.stream.Collectors.toList());
+    }
+
+    public void updateTaskColor(Long taskId, String newColor) {
+        // 1. 从数据库中找到这个任务
+        Task task = taskRepository.findById(taskId)
+                .orElseThrow(() -> new RuntimeException("找不到ID为 " + taskId + " 的任务"));
+        
+        // 2. 修改颜色
+        task.setColor(newColor);
+        
+        // 3. 保存回数据库
+        taskRepository.save(task);
     }
 }

@@ -1,7 +1,10 @@
 package com.wzy.aischeduler.service;
 
-import com.wzy.aischeduler.entity.Task;
-import com.wzy.aischeduler.repository.TaskRepository;
+import java.time.format.DateTimeFormatter;
+import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
+
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpHeaders;
@@ -9,16 +12,13 @@ import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestClient;
 
-import java.time.LocalDateTime;
-import java.time.format.DateTimeFormatter;
-import java.util.List;
-import java.util.Map;
-import java.util.stream.Collectors;
+import com.wzy.aischeduler.dto.LifestyleAnalysisDTO;
+import com.wzy.aischeduler.entity.Task;
+import com.wzy.aischeduler.repository.TaskRepository;
 
 @Service
 public class AiService {
 
-    // 从 properties 文件里读取配置
     @Value("${llm.api.url}")
     private String apiUrl;
 
@@ -29,9 +29,14 @@ public class AiService {
     private String model;
 
     @Autowired
-    private TaskRepository taskRepository; // 注入数据库操作类
+    private TaskRepository taskRepository;
 
-    // Spring Boot 3 提供的新一代 HTTP 客户端
+    @Autowired
+    private LifestyleAnalysisService lifestyleAnalysisService;
+
+    @Autowired
+    private CourseEventService courseEventService;
+
     private final RestClient restClient;
 
     public AiService() {
@@ -39,74 +44,97 @@ public class AiService {
     }
 
     /**
-     * 核心方法：向大模型发送作业描述，获取拆解后的子任务
+     * 静态拆解任务方法 (用于测试)
      */
     public String breakDownTask(String taskTitle, String taskDescription) {
-
-        // 1. 🥇 提示词工程 (Prompt Engineering)
         String systemPrompt = "你是一个专业的常春藤名校学术时间管理专家。你的任务是帮学生把大型作业拆解成易于执行的子任务。请以纯 JSON 数组格式返回，不要包含任何额外的 Markdown 标记或闲聊。格式示例：[{\"step\": \"第一步名称\", \"estimatedHours\": 2}, ...]";
         String userPrompt = "请拆解这个作业。标题：[" + taskTitle + "]。详细描述：[" + taskDescription + "]";
 
-        // 2. 📦 组装发送给 LLM 的数据包 (严格按照 API 规范)
         Map<String, Object> requestBody = Map.of(
                 "model", model,
-                "temperature", 0.3, // 0.3 代表让 AI 保持理智和严谨，不要瞎编
+                "temperature", 0.3,
                 "messages", List.of(
                         Map.of("role", "system", "content", systemPrompt),
                         Map.of("role", "user", "content", userPrompt)
                 )
         );
 
-        // 3. 🚀 发射请求并接收响应
-        System.out.println("🤖 正在呼叫 AI 大脑，请稍候...");
         try {
-            // 这里会向 AI 发起真正的网络请求
             Map<String, Object> response = restClient.post()
                     .uri(apiUrl)
                     .header(HttpHeaders.AUTHORIZATION, "Bearer " + apiKey)
                     .contentType(MediaType.APPLICATION_JSON)
                     .body(requestBody)
                     .retrieve()
-                    .body(Map.class); // 将 AI 返回的复杂 JSON 转换成 Java Map
+                    .body(Map.class);
 
-            // 4. 🧲 像剥洋葱一样提取出 AI 说的具体内容
             List<Map<String, Object>> choices = (List<Map<String, Object>>) response.get("choices");
             Map<String, Object> message = (Map<String, Object>) choices.get(0).get("message");
             return (String) message.get("content");
-
         } catch (Exception e) {
             System.err.println("❌ AI 请求失败: " + e.getMessage());
             return "[]";
         }
     }
 
-
-
     /**
-     * 自由聊天方法
+     * 自由聊天方法 (默认重载)
      */
     public String chat(String userMessage) {
-        // 1. 从数据库读取前 20 条任务作为“记忆”
-        List<Task> tasks = taskRepository.findAll();
+        return chat(userMessage, null, "America/Chicago", "en");
+    }
+
+    /**
+     * 核心双语聊天方法
+     */
+    public String chat(String userMessage, Long userId, String userTimezone, String lang) {
+        boolean isEn = "en".equals(lang);
+
+        // 🌟 1. 强力语言指令
+        String langInstruction = isEn 
+            ? "CRITICAL: You MUST communicate with the user, answer their questions, and output the recommended schedule block names (step/reason) ENTIRELY IN ENGLISH." 
+            : "关键规则：请全程使用中文回答用户并提供建议。";
+
+        // 🌟 2. 提取任务上下文 (双语前缀)
+        List<Task> tasks = userId == null ? taskRepository.findAll() : taskRepository.findByUserId(userId);
         String taskContext = tasks.stream()
-                .map(t -> "- " + t.getTitle() + " (截止日期: " + t.getDueDate() + ")")
+                .map(t -> "- id=" + t.getId() + (isEn ? ", title=" : ", 标题=") + t.getTitle() + (isEn ? ", Due=" : ", 截止日期=") + t.getDueDate())
                 .collect(Collectors.joining("\n"));
 
-        String currentTime = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss"));
+        // 🌟 3. 提取作息画像 (LifestyleService 已经处理过双语了，这里只处理前缀)
+        LifestyleAnalysisDTO lifestyle = lifestyleAnalysisService.analyze("week", userTimezone, userId, lang);
+        String lifestyleContext = isEn 
+            ? "User's rhythm profile: " + lifestyle.getRhythmLabel() + "; Focus style: " + lifestyle.getFocusStyle() + "; Peak window: " + lifestyle.getPeakWindow() + "; Recommendation: " + lifestyle.getRecommendation()
+            : "用户近期作息画像：" + lifestyle.getRhythmLabel() + "；偏好专注模式：" + lifestyle.getFocusStyle() + "；高能时间：" + lifestyle.getPeakWindow() + "；排期建议：" + lifestyle.getRecommendation();
 
-        String systemPrompt = "你是一个UIUC的学术助理。以下是用户的课程作业：\n" + taskContext +
-                "\n\n现在的时间是：" + currentTime + "。" +
-                "\n请回答用户问题。如果用户要求拆解作业或制定计划，你必须在回复最后提供一个纯 JSON 数组，格式严格如下：\n" +
+        // 🌟 4. 提取繁忙时间
+        String busyContext = courseEventService.buildBusyContext(userId, userTimezone);
+
+        // 🌟 5. 获取当前时间
+        java.time.ZonedDateTime userCurrentTime = java.time.ZonedDateTime.now(java.time.ZoneId.of(userTimezone));
+        String currentTime = userCurrentTime.format(DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss"));
+
+        // 🌟 6. 组装终极双语 System Prompt
+        String systemPrompt = (isEn ? "You are a UIUC academic assistant. Here are the user's current tasks:\n" : "你是一个UIUC的学术助理。以下是用户的课程作业：\n") + taskContext +
+                "\n\n" + lifestyleContext +
+                (isEn ? "\n\nAvoid these busy times for the next two weeks:\n" : "\n\n以下是用户未来两周的课程/不可用时间，排计划必须避开这些时间：\n") + busyContext +
+                (isEn ? "\n\nCurrent time is: " : "\n\n现在的时间是：") + currentTime + "。" +
+                (isEn 
+                    ? "\nScheduling rules: All suggestedDate must be between 06:00 and 23:00 (user's local time). Do not overlap with busy times. If not enough data, prioritize 09:00-11:30, 14:00-17:00, 19:00-22:00." +
+                      "\nYou can add, reduce, or cancel tasks. To delete an existing task, return action=delete and provide the taskId." +
+                      "\nIf the user asks for a plan, append a raw JSON array at the end of your response, formatted exactly like this:\n"
+                    : "\n排期硬性规则：所有 suggestedDate 必须在用户选择时区的时间 06:00 到 23:00 之间；不能安排在课程时间内；如果没有足够数据，默认优先 09:00-11:30、14:00-17:00、19:00-22:00。" +
+                      "\n你可以增加计划，也可以删减/取消。删除旧任务请用 action=delete 并提供 taskId。" +
+                      "\n如果用户要求制定计划，请在回复最后提供一个纯 JSON 数组，格式严格如下：\n") +
                 "[\n" +
-                "  {\"step\": \"第一步任务名称\", \"estimatedHours\": 2, \"suggestedDate\": \"2026-04-14T10:00:00\"},\n" +
-                "  {\"step\": \"第二步任务名称\", \"estimatedHours\": 3, \"suggestedDate\": \"2026-04-15T14:00:00\"}\n" +
+                "  {\"action\": \"add\", \"step\": \"Task Name\", \"estimatedHours\": 2, \"suggestedDate\": \"2026-04-14T10:00:00\"},\n" +
+                "  {\"action\": \"delete\", \"taskId\": 12, \"step\": \"Old Task Name\", \"reason\": \"Conflict with sleep\"}\n" +
                 "]\n" +
-                "注意：suggestedDate 必须是你结合当前时间和截止日期，推荐用户去做的具体时间（ISO 8601 格式）。" +
-                "如果是普通的闲聊，则正常回答文本即可。";
-        // 2. 组装数据包 (注意这里把用户的 userMessage 塞进去了)
+                "\n" + langInstruction; // 把语言强制指令放在最后，加重权重
+
         Map<String, Object> requestBody = Map.of(
                 "model", model,
-                "temperature", 0.7, // 聊天可以稍微发散一点，设为 0.7
+                "temperature", 0.7,
                 "messages", List.of(
                         Map.of("role", "system", "content", systemPrompt),
                         Map.of("role", "user", "content", userMessage)
@@ -128,7 +156,8 @@ public class AiService {
 
         } catch (Exception e) {
             System.err.println("❌ AI 请求失败: " + e.getMessage());
-            return "对不起，我现在脑子有点乱（API连接失败）。";
+            // 🌟 7. 双语报错返回
+            return isEn ? "Sorry, my brain is a bit scrambled right now (API Connection Failed)." : "对不起，我现在脑子有点乱（API连接失败）。";
         }
     }
 }
