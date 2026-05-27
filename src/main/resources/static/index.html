@@ -1,28 +1,32 @@
 <!DOCTYPE html>
 <html lang="zh">
+
 <head>
     <meta charset="UTF-8">
-    <title>ASif - Intelligent Flow</title>
+    <title>Nexus - Intelligent Flow</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://unpkg.com/tippy.js@6/dist/tippy.css" />
     <link rel="stylesheet" href="https://unpkg.com/tippy.js@6/themes/light-border.css" />
     <style>
         /* 🎨 全局变量：科技感与高质感的基石 */
         :root {
-            --bg-body: #f8fafc;
-            --bg-surface: rgba(255, 255, 255, 0.7);
-            --primary: #0f172a;
-            --primary-light: #334155;
-            --accent: #2563eb;
-            --accent-hover: #1d4ed8;
-            --success: #10b981;
+            --bg-body: #f7f8fb;
+            --bg-surface: #ffffff;
+            --primary: #172033;
+            --primary-light: #27364f;
+            --accent: #2f80ed;
+            --accent-hover: #1d65c8;
+            --mint: #16b99a;
+            --coral: #ff6b5f;
+            --amber: #f4b740;
+            --success: #16b99a;
             --danger: #ef4444;
-            --text-main: #0f172a;
-            --text-muted: #64748b;
-            --border-light: rgba(15, 23, 42, 0.08);
-            --shadow-glass: 0 8px 32px rgba(0, 0, 0, 0.04);
-            --radius-lg: 16px;
-            --radius-md: 10px;
+            --text-main: #172033;
+            --text-muted: #667085;
+            --border-light: #e6eaf0;
+            --shadow-glass: 0 18px 45px rgba(23, 32, 51, 0.08);
+            --radius-lg: 14px;
+            --radius-md: 8px;
         }
 
         /* 页面基础布局：增加呼吸感和毛玻璃背景 */
@@ -30,405 +34,2409 @@
             font-family: 'Inter', -apple-system, sans-serif;
             background: var(--bg-body);
             background-image:
-                    radial-gradient(at 0% 0%, hsla(253,16%,7%,0.03) 0, transparent 50%),
-                    radial-gradient(at 50% 0%, hsla(225,39%,30%,0.03) 0, transparent 50%),
-                    radial-gradient(at 100% 0%, hsla(339,49%,30%,0.03) 0, transparent 50%);
-            display: flex; flex-direction: row; padding: 24px; gap: 24px; height: 100vh; margin: 0; box-sizing: border-box;
+                linear-gradient(135deg, rgba(47, 128, 237, 0.08), transparent 36%),
+                linear-gradient(315deg, rgba(22, 185, 154, 0.08), transparent 38%);
+            display: flex;
+            flex-direction: row;
+            padding: 24px;
+            gap: 24px;
+            height: 100vh;
+            margin: 0;
+            box-sizing: border-box;
             color: var(--text-main);
         }
 
-        /* ✨ 核心：毛玻璃容器通用类 */
         .glass-panel {
-            background: var(--bg-surface);
-            backdrop-filter: blur(16px);
-            -webkit-backdrop-filter: blur(16px);
-            border: 1px solid rgba(255,255,255,0.8);
-            border-radius: var(--radius-lg);
-            box-shadow: var(--shadow-glass);
+            background: rgba(255, 255, 255, 0.75);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.6);
+            box-shadow: 0 8px 32px rgba(31, 38, 135, 0.07);
         }
 
         /* 左侧控制区美化 */
-        #controls { width: 260px; padding: 24px; display: flex; flex-direction: column; gap: 24px; }
-        .app-title { font-size: 24px; font-weight: 800; letter-spacing: -0.5px; display: flex; align-items: baseline; gap: 8px;}
-        .app-title span { font-size: 11px; font-weight: 600; color: var(--accent); letter-spacing: 0.5px; text-transform: uppercase; background: #eff6ff; padding: 4px 8px; border-radius: 20px;}
-
-        .control-group { display: flex; flex-direction: column; gap: 10px; }
-        .control-group label { font-size: 12px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; }
-
-        select, input[type="file"] {
-            padding: 10px 12px; border: 1px solid var(--border-light); border-radius: var(--radius-md); font-size: 13px; background: white; transition: all 0.2s; outline: none; font-family: inherit;
+        #controls {
+            width: 260px;
+            padding: 24px;
+            display: flex;
+            flex-direction: column;
+            gap: 24px;
         }
-        select:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(15, 23, 42, 0.05); }
 
-        .btn-sync { padding: 10px; background: var(--primary); color: white; border: none; border-radius: var(--radius-md); cursor: pointer; font-weight: 600; font-size: 13px; transition: all 0.2s; }
-        .btn-sync:hover { background: var(--primary-light); transform: translateY(-1px); }
-        .btn-sync.coursera { background: transparent; color: var(--primary); border: 1px solid var(--primary); }
-        .btn-sync.coursera:hover { background: var(--border-light); }
+        .app-title {
+            font-size: 24px;
+            font-weight: 800;
+            letter-spacing: 0;
+            display: flex;
+            align-items: baseline;
+            gap: 8px;
+        }
 
-        /* 任务列表美化 */
-        #taskList { max-height: 250px; overflow-y: auto; padding-right: 5px; }
-        .task-item { padding: 12px; margin-bottom: 8px; border-radius: var(--radius-md); background: white; border: 1px solid var(--border-light); cursor: pointer; transition: all 0.2s; }
-        .task-item:hover { transform: translateX(4px); border-color: #cbd5e1; box-shadow: 0 2px 8px rgba(0,0,0,0.03); }
-        .task-item strong { display: block; font-size: 13px; font-weight: 600; margin-bottom: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;}
-        .task-item .date { font-size: 11px; color: var(--text-muted); font-weight: 500;}
+        .app-title span {
+            font-size: 11px;
+            font-weight: 600;
+            color: var(--accent);
+            letter-spacing: 0;
+            text-transform: uppercase;
+            background: #eaf3ff;
+            padding: 4px 8px;
+            border-radius: 20px;
+        }
+
+        .control-group {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        #topAuth {
+            position: fixed;
+            top: 18px;
+            right: 18px;
+            z-index: 1000;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .top-auth-name {
+            display: none;
+            padding: 8px 10px;
+            border: 1px solid var(--border-light);
+            border-radius: var(--radius-md);
+            background: white;
+            color: var(--primary);
+            font-size: 12px;
+            font-weight: 800;
+            box-shadow: 0 8px 20px rgba(23, 32, 51, 0.08);
+        }
+
+        .top-auth-button {
+            border: none;
+            border-radius: var(--radius-md);
+            padding: 9px 12px;
+            background: var(--primary);
+            color: white;
+            cursor: pointer;
+            font-size: 12px;
+            font-weight: 800;
+            font-family: inherit;
+            box-shadow: 0 8px 20px rgba(23, 32, 51, 0.14);
+            transition: all 0.2s;
+        }
+
+        .top-auth-button:hover {
+            transform: translateY(-1px);
+            opacity: 0.9;
+        }
+
+        .auth-panel {
+            border: 1px solid var(--border-light);
+            border-radius: var(--radius-md);
+            padding: 12px;
+            background: #fbfcff;
+            display: flex;
+            flex-direction: column;
+            gap: 9px;
+        }
+
+        .auth-panel.inline {
+            display: none;
+        }
+
+        .auth-user {
+            display: none;
+            gap: 8px;
+            align-items: center;
+            justify-content: space-between;
+            font-size: 12px;
+            color: var(--text-muted);
+        }
+
+        #authForm {
+            display: flex;
+            flex-direction: column;
+            gap: 9px;
+        }
+
+        .auth-tabs {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 6px;
+            padding: 3px;
+            border-radius: var(--radius-md);
+            background: #eef2f7;
+        }
+
+        .auth-tabs button {
+            border: 0;
+            border-radius: 6px;
+            padding: 7px;
+            background: transparent;
+            color: var(--text-muted);
+            font-size: 12px;
+            font-weight: 800;
+            cursor: pointer;
+            font-family: inherit;
+        }
+
+        .auth-tabs button.active {
+            background: white;
+            color: var(--accent);
+            box-shadow: 0 2px 8px rgba(23, 32, 51, 0.08);
+        }
+
+        .auth-name {
+            font-weight: 800;
+            color: var(--primary);
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .auth-panel input {
+            padding: 9px 10px;
+            border: 1px solid var(--border-light);
+            border-radius: var(--radius-md);
+            font-size: 12px;
+            font-family: inherit;
+            outline: none;
+        }
+
+        .auth-actions {
+            display: flex;
+        }
+
+        .auth-actions button,
+        .link-button {
+            border: none;
+            border-radius: var(--radius-md);
+            padding: 9px 10px;
+            cursor: pointer;
+            font-weight: 700;
+            font-size: 12px;
+            font-family: inherit;
+        }
+
+        .auth-actions button {
+            width: 100%;
+            background: var(--primary);
+            color: white;
+        }
+
+        .link-button {
+            background: #eef4ff;
+            color: var(--accent);
+        }
+
+        .auth-hint {
+            font-size: 11px;
+            color: var(--text-muted);
+            line-height: 1.45;
+        }
+
+        .control-group label {
+            font-size: 12px;
+            font-weight: 700;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0;
+        }
+
+        select,
+        input[type="file"] {
+            padding: 10px 12px;
+            border: 1px solid var(--border-light);
+            border-radius: var(--radius-md);
+            font-size: 13px;
+            background: white;
+            transition: all 0.2s;
+            outline: none;
+            font-family: inherit;
+        }
+
+        select:focus {
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(15, 23, 42, 0.05);
+        }
+
+        .btn-sync {
+            padding: 10px;
+            background: #eef2ff;
+            /* 显眼的浅蓝底色 */
+            color: #3b82f6;
+            /* 亮蓝文字 */
+            border: 1px solid #dbeafe;
+            border-radius: var(--radius-md);
+            cursor: pointer;
+            font-weight: 700;
+            font-size: 13px;
+            transition: all 0.2s;
+            box-shadow: 0 2px 4px rgba(59, 130, 246, 0.1);
+        }
+
+        .btn-sync:hover {
+            background: #3b82f6;
+            color: white;
+            border-color: #3b82f6;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 10px rgba(59, 130, 246, 0.25);
+        }
+
+        /* 拖拽调整大小的分割条 (Split.js 专用) */
+        .gutter {
+            background-color: transparent;
+            background-position: 50%;
+            border-radius: 4px;
+            transition: background 0.2s;
+            position: relative;
+            z-index: 10;
+        }
+
+        .gutter:hover,
+        .gutter.gutter-dragging {
+            background-color: rgba(47, 128, 237, 0.15);
+        }
+
+        /* 给拖拽条加上防滑纹理，方便用户看出这是可拖拽的 */
+        .gutter.gutter-horizontal {
+            cursor: col-resize;
+            background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="8" height="24" viewBox="0 0 8 24"><path d="M2 0h1v24H2zM5 0h1v24H5z" fill="%2394a3b8"/></svg>');
+        }
+
+        .gutter.gutter-vertical {
+            cursor: row-resize;
+            background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="24" height="8" viewBox="0 0 24 8"><path d="M0 2h24v1H0zM0 5h24v1H0z" fill="%2394a3b8"/></svg>');
+        }
+
+        /* 解除旧有容器的死高度限制，交给 Split.js 动态计算 */
+        #controls {
+            padding: 0;
+            gap: 0;
+        }
+
+        #controls-top {
+            padding: 24px 24px 12px 24px;
+            display: flex;
+            flex-direction: column;
+            gap: 24px;
+            overflow-y: auto;
+        }
+
+        #controls-bottom {
+            padding: 12px 24px 24px 24px;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        #taskList {
+            flex: 1;
+            max-height: none;
+            /* 关键：必须是 none，交给 Split.js 动态计算 */
+            overflow-y: auto;
+            padding-right: 5px;
+            /* 保留滚动条的内边距 */
+        }
+
+        /* 关键：去掉原有的 max-height */
+        #right-rail {
+            gap: 0;
+        }
+
+        .task-item {
+            padding: 12px;
+            margin-bottom: 8px;
+            border-radius: var(--radius-md);
+            background: white;
+            border: 1px solid var(--border-light);
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .task-item:hover {
+            transform: translateX(4px);
+            border-color: rgba(47, 128, 237, 0.35);
+            box-shadow: 0 8px 20px rgba(47, 128, 237, 0.08);
+        }
+
+        .task-item strong {
+            display: block;
+            font-size: 13px;
+            font-weight: 600;
+            margin-bottom: 4px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .task-item .date {
+            font-size: 11px;
+            color: var(--text-muted);
+            font-weight: 500;
+        }
 
         /* 中央日历区美化 */
-        #calendar-container { flex: 2; padding: 20px; display: flex; flex-direction: column; }
-        #calendar { flex: 1; height: 100% !important; min-height: 0;}
+        #calendar-container {
+            flex: 2;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+        }
 
-        .fc { font-family: inherit; }
-        .fc-theme-standard td, .fc-theme-standard th { border-color: var(--border-light); }
-        .fc-col-header-cell { padding: 10px 0; font-weight: 600; color: var(--text-muted); font-size: 13px;}
-        .fc .fc-toolbar-title { font-weight: 700; letter-spacing: -0.5px; font-size: 1.25em;}
-        .fc .fc-button-primary { background-color: var(--primary); border-color: var(--primary); text-transform: capitalize; border-radius: 8px; font-weight: 500; font-size: 13px;}
-        .fc .fc-button-primary:hover { background-color: var(--primary-light); border-color: var(--primary-light); }
-        .fc-event { border: none !important; border-radius: 4px !important; padding: 2px 4px; font-size: 11px; font-weight: 600; cursor: pointer;}
+        #calendar {
+            flex: 1;
+            height: 100% !important;
+            min-height: 0;
+        }
+
+        .fc {
+            font-family: inherit;
+        }
+
+        .fc-theme-standard td,
+        .fc-theme-standard th {
+            border-color: var(--border-light);
+        }
+
+        .fc-col-header-cell {
+            padding: 10px 0;
+            font-weight: 600;
+            color: var(--text-muted);
+            font-size: 13px;
+        }
+
+        .fc .fc-toolbar-title {
+            font-weight: 700;
+            letter-spacing: 0;
+            font-size: 1.25em;
+        }
+
+        .fc .fc-button-primary {
+            background-color: var(--primary);
+            border-color: var(--primary);
+            text-transform: capitalize;
+            border-radius: 8px;
+            font-weight: 500;
+            font-size: 13px;
+        }
+
+        .fc .fc-button-primary:hover {
+            background-color: var(--primary-light);
+            border-color: var(--primary-light);
+        }
+
+        .fc-event {
+            border: none !important;
+            border-radius: 4px !important;
+            padding: 2px 4px;
+            font-size: 11px;
+            font-weight: 600;
+            cursor: pointer;
+        }
 
         /* 右侧聊天区美化 */
-        #chat-container { width: 360px; display: flex; flex-direction: column; overflow: hidden; }
-        .chat-header { padding: 16px 20px; font-weight: 700; font-size: 15px; border-bottom: 1px solid var(--border-light); display: flex; justify-content: space-between; align-items: center;}
-        .chat-status { font-size: 11px; font-weight: 600; color: var(--success); background: #d1fae5; padding: 3px 8px; border-radius: 12px;}
+        #chat-container {
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            min-height: 0;
+            flex: 1;
+        }
 
-        #messages { flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 16px; }
-        .message { padding: 12px 16px; border-radius: 14px; max-width: 85%; line-height: 1.5; font-size: 13px; }
-        .user { background: var(--primary); color: white; align-self: flex-end; border-bottom-right-radius: 4px; }
-        .ai { background: white; color: var(--text-main); align-self: flex-start; border-bottom-left-radius: 4px; box-shadow: 0 2px 8px rgba(0,0,0,0.02); border: 1px solid var(--border-light);}
+        #right-rail {
+            width: 380px;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+            min-width: 340px;
+        }
+
+        #life-panel {
+            padding: 18px;
+            overflow-y: auto;
+            /* 🌟 关键：允许面板缩小后，内部出现滚动条 */
+            box-sizing: border-box;
+            /* 🌟 关键：防止 padding 撑破 Split.js 计算的高度 */
+        }
+
+        .panel-title-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 14px;
+        }
+
+        .panel-title {
+            font-size: 15px;
+            font-weight: 800;
+            color: var(--primary);
+        }
+
+        .analysis-tabs {
+            display: flex;
+            gap: 4px;
+            padding: 3px;
+            border: 1px solid var(--border-light);
+            border-radius: 9px;
+            background: #f8fafc;
+        }
+
+        .analysis-tabs button {
+            border: 0;
+            background: transparent;
+            color: var(--text-muted);
+            border-radius: 6px;
+            padding: 5px 8px;
+            font-size: 12px;
+            font-weight: 700;
+            cursor: pointer;
+        }
+
+        .analysis-tabs button.active {
+            background: white;
+            color: var(--accent);
+            box-shadow: 0 2px 8px rgba(23, 32, 51, 0.08);
+        }
+
+        .life-summary {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin-bottom: 14px;
+        }
+
+        .metric-tile {
+            border: 1px solid var(--border-light);
+            border-radius: var(--radius-md);
+            padding: 10px;
+            background: #fbfcff;
+        }
+
+        .metric-label {
+            font-size: 11px;
+            color: var(--text-muted);
+            font-weight: 700;
+            margin-bottom: 5px;
+        }
+
+        .metric-value {
+            font-size: 16px;
+            font-weight: 800;
+            color: var(--primary);
+            line-height: 1.25;
+        }
+
+        .rhythm-bars {
+            display: grid;
+            grid-template-columns: 34px repeat(24, 1fr);
+            gap: 4px;
+            align-items: end;
+            margin: 10px 0 14px;
+            height: 148px;
+        }
+
+        .chart-y-axis {
+            height: 118px;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            font-size: 11px;
+            color: var(--text-muted);
+            font-weight: 700;
+            text-align: right;
+            padding-right: 4px;
+        }
+
+        .hour-bar-wrap {
+            height: 132px;
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-end;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .hour-bar {
+            width: 100%;
+            min-height: 2px;
+            border-radius: 5px 5px 2px 2px;
+            background: linear-gradient(180deg, var(--accent), var(--mint));
+            transition: height 0.5s cubic-bezier(0.4, 0, 0.2, 1) !important;
+        }
+
+        .hour-label {
+            font-size: 9px;
+            color: var(--text-muted);
+            writing-mode: vertical-rl;
+            line-height: 1;
+        }
+
+        .life-reco {
+            padding: 12px;
+            border-radius: var(--radius-md);
+            background: #eefbf7;
+            color: #155f51;
+            font-size: 12px;
+            line-height: 1.55;
+            font-weight: 600;
+        }
+
+        .chat-header {
+            padding: 16px 20px;
+            font-weight: 700;
+            font-size: 15px;
+            border-bottom: 1px solid var(--border-light);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .chat-status {
+            font-size: 11px;
+            font-weight: 600;
+            color: var(--success);
+            background: #d1fae5;
+            padding: 3px 8px;
+            border-radius: 12px;
+        }
+
+        #messages {
+            flex: 1;
+            overflow-y: auto;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+
+        .message {
+            padding: 12px 16px;
+            border-radius: 14px;
+            max-width: 85%;
+            line-height: 1.5;
+            font-size: 13px;
+        }
+
+        .user {
+            background: var(--primary);
+            color: white;
+            align-self: flex-end;
+            border-bottom-right-radius: 4px;
+        }
+
+        .ai {
+            background: white;
+            color: var(--text-main);
+            align-self: flex-start;
+            border-bottom-left-radius: 4px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.02);
+            border: 1px solid var(--border-light);
+        }
 
         /* AI 计划卡片美化 */
-        .ai-planner-box { background: white; border: 1px solid var(--border-light); border-radius: 14px; padding: 16px; margin-top: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.03); width: 100%; box-sizing: border-box;}
-        .planner-header { font-weight: 700; margin-bottom: 12px; display: flex; align-items: center; gap: 6px; font-size: 14px; color: var(--primary);}
-        .planner-item { display: flex; align-items: flex-start; gap: 10px; margin-bottom: 10px; padding: 8px; border-radius: 8px; transition: background 0.2s; }
-        .planner-item:hover { background: #f8fafc; }
-        .planner-item input[type="checkbox"] { margin-top: 3px; width: 16px; height: 16px; accent-color: var(--primary); cursor: pointer; }
-        .planner-item label { cursor: pointer; font-size: 13px; line-height: 1.4; font-weight: 500;}
-        .planner-item span { display: block; font-size: 11px; color: var(--text-muted); margin-top: 4px; font-weight: 400;}
+        .ai-planner-box {
+            background: white;
+            border: 1px solid var(--border-light);
+            border-radius: 14px;
+            padding: 16px;
+            margin-top: 8px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.03);
+            width: 100%;
+            box-sizing: border-box;
+        }
 
-        .sync-btn { width: 100%; padding: 12px; background: var(--primary); color: white; border: none; border-radius: var(--radius-md); cursor: pointer; font-weight: 600; font-size: 13px; margin-top: 10px; transition: transform 0.2s; }
-        .sync-btn:hover { transform: translateY(-1px); }
-        .sync-btn:disabled { background: var(--text-muted); cursor: not-allowed; transform: none;}
+        .planner-header {
+            font-weight: 700;
+            margin-bottom: 12px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 14px;
+            color: var(--primary);
+        }
 
-        #input-area { padding: 16px; display: flex; border-top: 1px solid var(--border-light); background: rgba(255,255,255,0.6); gap: 10px;}
-        #input-area input { flex: 1; padding: 10px 14px; border: 1px solid var(--border-light); border-radius: 20px; outline: none; font-size: 13px; background: white;}
-        #input-area input:focus { border-color: var(--primary); }
-        #input-area button { padding: 10px 18px; background: var(--primary); color: white; border: none; border-radius: 20px; cursor: pointer; font-weight: 600; font-size: 13px;}
+        .planner-item {
+            display: flex;
+            align-items: flex-start;
+            gap: 10px;
+            margin-bottom: 10px;
+            padding: 8px;
+            border-radius: 8px;
+            transition: background 0.2s;
+        }
+
+        .planner-item:hover {
+            background: #f8fafc;
+        }
+
+        .planner-item input[type="checkbox"] {
+            margin-top: 3px;
+            width: 16px;
+            height: 16px;
+            accent-color: var(--primary);
+            cursor: pointer;
+        }
+
+        .planner-item label {
+            cursor: pointer;
+            font-size: 13px;
+            line-height: 1.4;
+            font-weight: 500;
+        }
+
+        .planner-item span {
+            display: block;
+            font-size: 11px;
+            color: var(--text-muted);
+            margin-top: 4px;
+            font-weight: 400;
+        }
+
+        .sync-btn {
+            width: 100%;
+            padding: 12px;
+            background: var(--primary);
+            color: white;
+            border: none;
+            border-radius: var(--radius-md);
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 13px;
+            margin-top: 10px;
+            transition: transform 0.2s;
+        }
+
+        .sync-btn:hover {
+            transform: translateY(-1px);
+        }
+
+        .sync-btn:disabled {
+            background: var(--text-muted);
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        #input-area {
+            padding: 16px;
+            display: flex;
+            border-top: 1px solid var(--border-light);
+            background: rgba(255, 255, 255, 0.6);
+            gap: 10px;
+        }
+
+        #input-area input {
+            flex: 1;
+            padding: 10px 14px;
+            border: 1px solid var(--border-light);
+            border-radius: 20px;
+            outline: none;
+            font-size: 13px;
+            background: white;
+        }
+
+        #input-area input:focus {
+            border-color: var(--primary);
+        }
+
+        #input-area button {
+            padding: 10px 18px;
+            background: var(--primary);
+            color: white;
+            border: none;
+            border-radius: 20px;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 13px;
+        }
 
         /* 模态框 (Modal) 美化 */
-        .modal { display: none; position: fixed; z-index: 9999; left: 0; top: 0; width: 100%; height: 100%; background: rgba(15, 23, 42, 0.4); backdrop-filter: blur(4px); }
-        .modal-content { background: white; margin: 8% auto; padding: 32px; border-radius: 20px; width: 45%; max-height: 75%; overflow-y: auto; box-shadow: 0 20px 40px rgba(0,0,0,0.1); position: relative; }
-        .close-btn { position: absolute; right: 24px; top: 24px; font-size: 24px; cursor: pointer; color: #94a3b8; line-height: 1;}
-        .close-btn:hover { color: var(--primary); }
-        #modalDescription a { color: var(--accent); text-decoration: underline; font-weight: 500;}
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 9999;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(15, 23, 42, 0.4);
+            backdrop-filter: blur(4px);
+        }
 
-        #deleteTaskBtn { background: #fee2e2; color: var(--danger); border: none; padding: 8px 16px; border-radius: 8px; cursor: pointer; font-weight: 600; font-size: 13px; transition: background 0.2s; }
-        #deleteTaskBtn:hover { background: #fecaca; }
+        .modal-content {
+            background: white;
+            margin: 8% auto;
+            padding: 32px;
+            border-radius: 20px;
+            width: 45%;
+            max-height: 75%;
+            overflow-y: auto;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+            position: relative;
+        }
+
+        .close-btn {
+            position: absolute;
+            right: 24px;
+            top: 24px;
+            font-size: 24px;
+            cursor: pointer;
+            color: #94a3b8;
+            line-height: 1;
+        }
+
+        .close-btn:hover {
+            color: var(--primary);
+        }
+
+        #modalDescription a {
+            color: var(--accent);
+            text-decoration: underline;
+            font-weight: 500;
+        }
+
+        #deleteTaskBtn {
+            background: #fee2e2;
+            color: var(--danger);
+            border: none;
+            padding: 8px 16px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 13px;
+            transition: background 0.2s;
+        }
+
+        #deleteTaskBtn:hover {
+            background: #fecaca;
+        }
 
         /* 滚动条细化 */
-        ::-webkit-scrollbar { width: 5px; }
-        ::-webkit-scrollbar-track { background: transparent; }
-        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
+        ::-webkit-scrollbar {
+            width: 5px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 10px;
+        }
+
+        @media (max-width: 1180px) {
+            body {
+                height: auto;
+                min-height: 100vh;
+                flex-direction: column;
+            }
+
+            #controls,
+            #right-rail {
+                width: auto;
+            }
+
+            #calendar-container {
+                min-height: 620px;
+            }
+
+            #chat-container {
+                display: flex;
+                flex-direction: column;
+                overflow: hidden;
+                min-height: 0;
+                box-sizing: border-box;
+                /* 🌟 关键：把原来这里的 flex: 1 删掉！彻底把高度控制权交给 Split.js */
+            }
+        }
+
+        /*toast 消息框*/
+        #toast-container {
+            position: fixed;
+            top: 24px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 9999;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            pointer-events: none;
+        }
+
+        .toast {
+            padding: 12px 24px;
+            border-radius: var(--radius-md);
+            color: white;
+            font-size: 13px;
+            font-weight: 600;
+            box-shadow: 0 20px 40px rgba(15, 23, 42, 0.15);
+            backdrop-filter: blur(10px);
+            opacity: 0;
+            transform: translateY(-20px);
+            transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+
+        .toast.success {
+            background: rgba(22, 185, 154, 0.95);
+            border: 1px solid rgba(22, 185, 154, 0.2);
+        }
+
+        .toast.error {
+            background: rgba(239, 68, 68, 0.95);
+            border: 1px solid rgba(239, 68, 68, 0.2);
+        }
+
+        .toast.info {
+            background: rgba(23, 32, 51, 0.95);
+            border: 1px solid rgba(23, 32, 51, 0.2);
+        }
+
+        /*打字框*/
+        .typing-loader {
+            display: flex;
+            gap: 5px;
+            padding: 6px 4px;
+            align-items: center;
+        }
+
+        .typing-loader span {
+            width: 6px;
+            height: 6px;
+            background: var(--text-main);
+            border-radius: 50%;
+            opacity: 0.4;
+            animation: typingDots 1.4s infinite ease-in-out both;
+        }
+
+        .typing-loader span:nth-child(2) {
+            animation-delay: 0.2s;
+        }
+
+        .typing-loader span:nth-child(3) {
+            animation-delay: 0.4s;
+        }
+
+        @keyframes typingDots {
+
+            0%,
+            100% {
+                transform: scale(0.8);
+                opacity: 0.4;
+            }
+
+            50% {
+                transform: scale(1.3) translateY(-4px);
+                opacity: 0.9;
+            }
+        }
+
+        /*空状态*/
+        .empty-state-box {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 32px 16px;
+            text-align: center;
+            color: var(--text-muted);
+        }
+
+        .empty-state-icon {
+            font-size: 32px;
+            margin-bottom: 12px;
+            opacity: 0.6;
+        }
+
+        /*dark mode*/
+        [data-theme="dark"] {
+            --bg-body: #0f172a;
+            --bg-surface: #1e293b;
+            --primary: #f8fafc;
+            --primary-light: #cbd5e1;
+            --text-main: #f8fafc;
+            --text-muted: #94a3b8;
+            --border-light: #334155;
+            background-color: #0f172a;
+        }
+
+        [data-theme="dark"] .glass-panel,
+        [data-theme="dark"] .modal-content {
+            background: rgba(22, 27, 34, 0.8) !important;
+            border-color: #30363d !important;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4) !important;
+            color: #e6edf3 !important;
+        }
+
+        /* 彻底解决暗黑模式下字体颜色冲突 */
+        [data-theme="dark"] button,
+        [data-theme="dark"] .btn-sync,
+        [data-theme="dark"] .top-auth-button {
+            color: #ffffff !important;
+        }
+
+        [data-theme="dark"] .top-auth-button {
+            background: #21262d !important;
+            border: 1px solid #30363d !important;
+        }
+
+        [data-theme="dark"] .btn-sync {
+            background: #67868b !important;
+            /* 更柔和的极客绿 */
+            border: 1px solid #618893 !important;
+        }
+
+        [data-theme="dark"] input,
+        [data-theme="dark"] textarea,
+        [data-theme="dark"] .custom-input {
+            background: #0d1117 !important;
+            border: 1px solid #30363d !important;
+            color: #e6edf3 !important;
+        }
+
+        [data-theme="dark"] .task-item {
+            background: #161b22 !important;
+            border-color: #30363d !important;
+        }
+
+        [data-theme="dark"] .task-item:hover {
+            background: #21262d !important;
+        }
+
+        [data-theme="dark"] .metric-tile {
+            background: #1e293b !important;
+            border-color: #30363d !important;
+            box-shadow: none !important;
+        }
+
+        [data-theme="dark"] .metric-value {
+            color: var(--accent) !important;
+            /* 保持数字的高亮 */
+        }
+
+        /* 2. 修复聊天区的气泡颜色 */
+        [data-theme="dark"] .message.user {
+            background: #495170 !important;
+            /* 用户的消息用柔和的极客绿 */
+            color: #ffffff !important;
+            border: none !important;
+        }
+
+        [data-theme="dark"] .message.ai {
+            background: #1e293b !important;
+            /* AI 的消息用深色卡片背景 */
+            border: 1px solid #30363d !important;
+            color: #e6edf3 !important;
+        }
+
+        [data-theme="dark"] .ai-planner-box {
+            background: #161b22 !important;
+            border-color: #30363d !important;
+        }
+
+        [data-theme="dark"] .planner-item {
+            background: #1e293b !important;
+            border-color: #30363d !important;
+        }
+
+        [data-theme="dark"] .planner-item:hover {
+            background: #21262d !important;
+        }
+
+        /* 3. 修复 FullCalendar 日历内部的颜色 */
+        [data-theme="dark"] .fc-theme-standard td,
+        [data-theme="dark"] .fc-theme-standard th {
+            border-color: #30363d !important;
+        }
+
+        [data-theme="dark"] .fc .fc-col-header-cell-cushion,
+        [data-theme="dark"] .fc .fc-daygrid-day-number {
+            color: #8b949e !important;
+        }
+
+        [data-theme="dark"] .fc .fc-button-primary {
+            background-color: #21262d !important;
+            border-color: #30363d !important;
+            color: #c9d1d9 !important;
+        }
+
+        [data-theme="dark"] .fc .fc-button-primary:not(:disabled):active,
+        [data-theme="dark"] .fc .fc-button-primary:not(:disabled).fc-button-active {
+            background-color: #30363d !important;
+            border-color: #8b949e !important;
+        }
+
+        [data-theme="dark"] .fc-day-today {
+            background-color: rgba(47, 128, 237, 0.1) !important;
+            /* 今天的高亮背景 */
+        }
+
+        /* 4. 修复分析区的图表刻度和线条 */
+        [data-theme="dark"] .chart-y-axis {
+            color: #8b949e !important;
+        }
+
+        /*
+        [data-theme="dark"] .hour-bar {
+            background: linear-gradient(to top, #238636, #2ea043) !important;
+            box-shadow: 0 0 10px rgba(46, 160, 67, 0.4) !important;
+        }
+        */
+
+        [data-theme="dark"] .hour-label {
+            color: #8b949e !important;
+        }
+
+        /* 5. 修复顶栏和各种小面板 */
+        [data-theme="dark"] .chat-header {
+            border-bottom-color: #30363d !important;
+        }
+
+        [data-theme="dark"] #input-area {
+            border-top-color: #30363d !important;
+            background: #0d1117 !important;
+        }
+
+        [data-theme="dark"] .panel-title-row {
+            border-bottom-color: #30363d !important;
+        }
+
+        [data-theme="dark"] .analysis-tabs {
+            background: #1e293b !important;
+            border-color: #30363d !important;
+        }
+
+        [data-theme="dark"] .analysis-tabs button {
+            color: #8b949e !important;
+        }
+
+        [data-theme="dark"] .analysis-tabs button.active {
+            background: #30363d !important;
+            /* 选中状态使用深灰背景 */
+            color: #f8fafc !important;
+            /* 字体变白 */
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3) !important;
+        }
+
+        /* 修复底部 AI 建议框的浅绿色背景 */
+        [data-theme="dark"] .life-reco {
+            background: #161b22 !important;
+            /* 与主题色融合的深底色 */
+            color: #2ea043 !important;
+            /* 字体改为极客绿 */
+            border: 1px solid #30363d !important;
+        }
+
+        /* 通用输入框样式 (用于手动添加任务) */
+        .custom-input {
+            width: 100%;
+            padding: 10px;
+            margin-bottom: 12px;
+            border: 1px solid var(--border-light);
+            border-radius: 6px;
+            background: var(--bg-surface);
+            color: var(--text-main);
+            font-family: inherit;
+            font-size: 13px;
+            outline: none;
+        }
+
+        .custom-input:focus {
+            border-color: var(--accent);
+        }
     </style>
 
     <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.10/index.global.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.10/locales-all.global.min.js"></script>
+    <script src="https://unpkg.com/split.js/dist/split.min.js"></script>
     <script src="https://unpkg.com/@popperjs/core@2"></script>
     <script src="https://unpkg.com/tippy.js@6"></script>
 </head>
+
 <body>
 
-<div id="taskModal" class="modal">
-    <div class="modal-content">
-        <span class="close-btn" onclick="closeModal()">&times;</span>
-        <div style="border-bottom: 1px solid var(--border-light); padding-bottom: 16px; margin-bottom: 20px;">
-            <h2 id="modalTitle" style="margin: 0; font-size: 20px; font-weight: 700; color: var(--primary); letter-spacing: -0.5px;">任务详情</h2>
-            <div id="modalDate" style="color: var(--accent); font-size: 13px; margin-top: 6px; font-weight: 600;"></div>
+    <div id="toast-container"></div>
+
+    <div id="topAuth">
+        <button id="themeToggleBtn" class="top-auth-button" onclick="toggleTheme()"
+            style="background: #f1f5f9; color: #475569; padding: 9px 10px;">🌙</button>
+
+        <button id="langToggleBtn" class="top-auth-button" onclick="toggleLanguage()"
+            style="background: #eef2ff; color: #3b82f6; border: 1px solid #dbeafe;">🌐 English</button>
+
+        <div id="authGuestNav" style="display: flex; gap: 10px;">
+            <button class="top-auth-button" onclick="openAuthModal('signin')" data-i18n="btnSignInTab">Sign in</button>
+            <button class="top-auth-button" style="background: var(--accent);" onclick="openAuthModal('signup')"
+                data-i18n="btnSignUpTab">Sign up</button>
         </div>
-        <div id="modalDescription" style="line-height: 1.6; font-size: 14px; color: #475569; word-wrap: break-word;"></div>
 
-        <div style="margin-top: 24px; text-align: right; display: flex; justify-content: flex-end;">
-            <button id="deleteTaskBtn">移除节点</button>
+        <div id="authUserNav" style="display: none; align-items: center; gap: 10px;">
+            <span id="topAuthName" class="top-auth-name"></span>
+            <button id="topAuthButton" class="top-auth-button" onclick="openAuthModal('account')"
+                data-i18n="btnAccount">Account</button>
         </div>
     </div>
-</div>
 
-<div id="controls" class="glass-panel">
-    <div class="app-title">
-        ASif <span>Flow</span>
+    <div id="authModal" class="modal">
+        <div class="modal-content" style="width: 360px; max-width: calc(100vw - 48px);">
+            <span class="close-btn" onclick="closeAuthModal()">&times;</span>
+            <h2 id="authModalTitle" style="margin: 0 0 18px; font-size: 20px;">Account</h2>
+            <div class="auth-panel">
+                <div id="authForm">
+                    <input id="authUsername" type="text" placeholder="Username"
+                        data-i18n-placeholder="authUsernamePlaceholder">
+                    <input id="authEmail" type="email" placeholder="Email" data-i18n-placeholder="authEmailPlaceholder">
+                    <input id="authIdentifier" type="text" placeholder="Username or email"
+                        data-i18n-placeholder="authIdPlaceholder">
+                    <input id="authPassword" type="password" placeholder="Password"
+                        data-i18n-placeholder="authPasswordPlaceholder">
+                    <div class="auth-actions">
+                        <button id="authSubmitBtn" onclick="submitCurrentAuth()">Sign in</button>
+                    </div>
+                    <div class="auth-hint" id="authHint" data-i18n="authHint">使用用户名或邮箱，加密码登录。</div>
+                </div>
+                <div id="authUser" class="auth-user">
+                    <div>
+                        <div class="auth-name" id="authUserName">Guest</div>
+                        <div id="authUserEmail">未登录</div>
+                    </div>
+                    <button class="link-button" onclick="signOut()">退出</button>
+                </div>
+            </div>
+        </div>
     </div>
 
-    <div class="control-group">
-        <label for="timezoneSelect">🌍 时区同步</label>
-        <select id="timezoneSelect" onchange="onTimezoneChange()">
-            <option value="America/Chicago">UIUC (Chicago)</option>
-            <option value="Asia/Shanghai">Beijing (Shanghai)</option>
-            <option value="UTC">Global (UTC)</option>
-        </select>
+    <div id="taskModal" class="modal">
+        <div class="modal-content">
+            <span class="close-btn" onclick="closeModal()">&times;</span>
+            <div style="border-bottom: 1px solid var(--border-light); padding-bottom: 16px; margin-bottom: 20px;">
+                <h2 id="modalTitle"
+                    style="margin: 0; font-size: 20px; font-weight: 700; color: var(--primary); letter-spacing: 0;"
+                    data-i18n="modalTitleText">任务详情</h2>
+                <div id="modalDate" style="color: var(--accent); font-size: 13px; margin-top: 6px; font-weight: 600;">
+                </div>
+            </div>
+            <div id="modalDescription"
+                style="line-height: 1.6; font-size: 14px; color: #475569; word-wrap: break-word;"></div>
+            <div
+                style="margin-top: 16px; padding-top: 16px; border-top: 1px dashed var(--border-light); display: flex; align-items: center; gap: 10px;">
+                <label style="font-size: 13px; font-weight: 600; color: var(--text-muted);"
+                    data-i18n="setColorLabel">设置标签颜色:</label>
+                <input type="color" id="taskColorPicker"
+                    style="border: none; width: 28px; height: 28px; cursor: pointer; padding: 0; background: transparent;">
+                <button onclick="updateTaskColor()"
+                    style="padding: 6px 12px; background: #f1f5f9; border: none; border-radius: 6px; font-size: 12px; cursor: pointer; font-weight: 600;"
+                    data-i18n="saveColorBtn">保存颜色</button>
+            </div>
+            <div style="margin-top: 24px; text-align: right; display: flex; justify-content: flex-end; gap: 10px;">
+                <button id="editTaskBtn" class="btn-sync"
+                    style="background: var(--accent); border: none; display: none;" data-i18n="editBtn">✏️ 编辑</button>
+                <button id="deleteTaskBtn" data-i18n="deleteTaskBtn">移除节点</button>
+            </div>
+        </div>
     </div>
 
-    <div class="control-group">
-        <label>📥 数据源接入</label>
-        <input type="file" id="canvasFile" accept=".json">
-        <button class="btn-sync" onclick="uploadFile('canvas')">同步 Canvas</button>
-        <input type="file" id="courseraFile" accept=".json">
-        <button class="btn-sync coursera" onclick="uploadFile('coursera')">同步 Coursera</button>
+    <div id="editTaskModal" class="modal">
+        <div class="modal-content">
+            <span class="close-btn"
+                onclick="document.getElementById('editTaskModal').style.display='none'">&times;</span>
+            <h2 id="editModalTitle" style="margin-top:0;">新增/编辑任务</h2>
+            <input type="hidden" id="editTaskId">
+            <div style="display: flex; flex-direction: column; margin-top: 16px;">
+                <input type="text" id="editTaskName" placeholder="任务名称..." class="custom-input">
+
+                <label style="font-size: 11px; color: var(--text-muted); font-weight: 600; margin-bottom: 4px;">起止时间
+                    (跟随左侧所选时区)</label>
+                <input type="datetime-local" id="editTaskDate" class="custom-input" style="margin-bottom: 8px;">
+                <input type="datetime-local" id="editTaskEndDate" class="custom-input">
+
+                <textarea id="editTaskDesc" placeholder="详情描述..." class="custom-input"
+                    style="height: 80px; resize: none;"></textarea>
+                <button onclick="saveManualTask()" class="btn-sync" style="background: var(--accent); color: white;">💾
+                    保存任务</button>
+            </div>
+        </div>
     </div>
 
-    <div class="control-group" style="flex:1; overflow:hidden;">
-        <label>📋 待办速览</label>
-        <div id="taskList"></div>
+    <div id="controls" class="glass-panel">
+        <div id="controls-top">
+            <div class="app-title">Nexus <span>Flow</span></div>
+            <div class="control-group">
+                <label for="timezoneSelect" data-i18n="timezoneLabel">🌍 时区同步 (可搜索)</label>
+                <input type="text" id="timezoneSelect" list="tz-list" placeholder="搜索如: America/Chicago"
+                    onchange="onTimezoneChange()">
+                <datalist id="tz-list"></datalist>
+            </div>
+            <div class="control-group">
+                <label data-i18n="dataSourceLabel">📥 数据源接入</label>
+                <input type="file" id="canvasFile" accept=".json">
+                <button class="btn-sync" onclick="uploadFile('canvas')" data-i18n="syncCanvasBtn">同步 Canvas</button>
+                <input type="file" id="courseraFile" accept=".json">
+                <button class="btn-sync" onclick="uploadFile('coursera')" data-i18n="syncCourseraBtn">同步
+                    Coursera</button>
+                <input type="file" id="icsFile" accept=".ics,text/calendar">
+                <button class="btn-sync" onclick="uploadIcsFile()" data-i18n="syncCourseBtn">导入课程表 .ics</button>
+            </div>
+        </div>
+
+        <div id="controls-bottom">
+            <div
+                style="display: flex; flex-direction: row; justify-content: space-between; align-items: center; margin-bottom: 12px; padding-top: 4px; border-top: 1px solid var(--border-light);">
+                <label style="font-size: 12px; font-weight: 700; color: var(--text-muted); margin: 0;"
+                    data-i18n="taskListLabel">📋 待办速览</label>
+                <button onclick="openEditModal()"
+                    style="background: none; border: none; color: var(--accent); cursor: pointer; font-size: 20px; line-height: 1; padding: 0; transform: translateY(-2px);"
+                    title="手动添加任务">⊕</button>
+            </div>
+
+            <div id="taskList"></div>
+        </div>
     </div>
-</div>
 
-<div id="calendar-container" class="glass-panel">
-    <div id="calendar"></div>
-</div>
-
-<div id="chat-container" class="glass-panel">
-    <div class="chat-header">
-        智能心流助理
-        <span class="chat-status">在线</span>
+    <div id="calendar-container" class="glass-panel">
+        <div id="calendar"></div>
     </div>
-    <div id="messages"></div>
-    <div id="input-area">
-        <input type="text" id="userInput" placeholder="输入任务名称进行拆解...">
-        <button onclick="sendMessage()">发送</button>
+
+    <div id="right-rail">
+        <div id="life-panel" class="glass-panel">
+            <div class="panel-title-row">
+                <div class="panel-title" data-i18n="analysisTitle">作息追踪与分析</div>
+                <div class="analysis-tabs">
+                    <button class="active" data-period="day" onclick="switchAnalysisPeriod('day', this)"
+                        data-i18n="btnDay">日</button>
+                    <button data-period="week" onclick="switchAnalysisPeriod('week', this)"
+                        data-i18n="btnWeek">周</button>
+                    <button data-period="month" onclick="switchAnalysisPeriod('month', this)"
+                        data-i18n="btnMonth">月</button>
+                </div>
+            </div>
+            <div class="life-summary">
+                <div class="metric-tile">
+                    <div class="metric-label" data-i18n="metricRhythm">节奏画像</div>
+                    <div class="metric-value" id="rhythmLabel" data-i18n="analyzing">分析中</div>
+                </div>
+                <div class="metric-tile">
+                    <div class="metric-label" data-i18n="metricFocus">专注模式</div>
+                    <div class="metric-value" id="focusStyle" data-i18n="analyzing">分析中</div>
+                </div>
+            </div>
+            <div class="rhythm-bars" id="rhythmBars"></div>
+            <div class="life-reco" id="lifeRecommendation" data-i18n="loadingRhythm">正在读取你的任务节奏。</div>
+        </div>
+
+        <div id="chat-container" class="glass-panel">
+            <div class="chat-header">
+                Nexus.ai
+                <span class="chat-status" data-i18n="statusOnline">在线</span>
+            </div>
+            <div id="messages"></div>
+            <div id="input-area">
+                <input type="text" id="userInput" placeholder="输入任务名称进行拆解..." data-i18n-placeholder="chatPlaceholder"
+                    onkeydown="if(event.key === 'Enter') sendMessage()">
+                <button onclick="sendMessage()" data-i18n="sendBtn">发送</button>
+            </div>
+        </div>
     </div>
-</div>
 
-<script>
-    let calendar;
+    <script>
+        const translations = {
+            zh: {
+                // 顶栏与左侧控制面板
+                timezoneLabel: "🌍 时区同步 (可搜索)",
+                dataSourceLabel: "📥 数据源接入",
+                syncCanvasBtn: "同步 Canvas",
+                syncCourseraBtn: "同步 Coursera",
+                syncCourseBtn: "导入课程表 .ics",
+                taskListLabel: "📋 待办速览",
+                btnAccount: "Account",
 
-    document.addEventListener('DOMContentLoaded', function() {
-        const initialTz = document.getElementById('timezoneSelect').value;
-        initCalendar(initialTz);
-        loadTasks(initialTz);
+                // 右侧作息分析模块
+                analysisTitle: "作息追踪与分析",
+                btnDay: "日",
+                btnWeek: "周",
+                btnMonth: "月",
+                metricRhythm: "节奏画像",
+                metricFocus: "专注模式",
+                analyzing: "分析中",
+                loadingRhythm: "正在读取你的任务节奏。",
 
-        window.onclick = function(event) {
-            const modal = document.getElementById('taskModal');
-            if (event.target == modal) closeModal();
+                // AI 聊天模块
+                aiWelcome: "👋 你好！我是你的智能学术助理 Nexus。你可以告诉我你的任务安排，或者直接输入 '/plan' 让我为你生成专属日程。",
+                statusOnline: "在线",
+                chatPlaceholder: "输入任务名称进行拆解...",
+                sendBtn: "发送",
+
+                // 账户登录弹窗
+                authHint: "使用用户名或邮箱，加密码登录。",
+                btnSignInTab: "Sign in",
+                btnSignUpTab: "Sign up",
+                authUsernamePlaceholder: "Username",
+                authEmailPlaceholder: "Email",
+                authIdPlaceholder: "Username or email",
+                authPasswordPlaceholder: "Password",
+
+                // 任务详情弹窗
+                modalTitleText: "任务详情",
+                setColorLabel: "设置标签颜色:",
+                saveColorBtn: "保存颜色",
+                deleteTaskBtn: "移除节点",
+                tzPlaceholder: "搜索如: America/Chicago",
+
+                // 🌟 新增：JS 内部硬编码文本国际化
+                alertRequireUser: "请先 Sign in 或 Sign up，再同步和创建任务。",
+                alertSignUp: "注册需要用户名、邮箱和至少 6 位密码。",
+                alertSignIn: "登录需要用户名或邮箱，以及密码。",
+                alertAuthFail: "账号操作失败: ",
+                checkInput: "请检查输入。",
+                alertColorFail: "颜色保存失败，请检查后端是否配置了更新接口。",
+                confirmDeleteTask: "确定要移除这个任务节点吗？",
+                alertDeleteFail: "删除失败",
+                defaultReco: "导入更多任务后，我会给出更稳定的规划建议。",
+                serviceUnavailable: "暂不可用",
+                tryLater: "稍后重试",
+                analyticsNoResponse: "作息分析接口暂时没有响应。",
+                noTasks: "暂无待办任务",
+                alertSelectFile: "请选择文件",
+                syncing: "同步中...",
+                syncFail: "同步失败: ",
+                uploadFail: "上传失败",
+                alertSelectIcs: "请选择 .ics 文件",
+                icsUploadFail: "课程表上传失败",
+                aiConnectFail: "❌ 连接助理失败",
+                sysNotifyImport: "(系统通知) 导入了 ",
+                sysNotifyRequest: " 数据，请求 AI 分析...",
+                aiAnalysisFail: "❌ 分析作业数据失败，请重试。",
+                plannerHeader: "✨ AI 智能排期建议",
+                deleteLabel: "删除",
+                addLabel: "新增",
+                unnamedPlan: "未命名计划",
+                aiSuggestCancel: "AI 建议取消该计划",
+                scheduleLater: "稍后安排",
+                suggestedExecution: "建议执行: ",
+                applyPlanBtn: "应用所选增删计划",
+                alertNoTaskChecked: "请至少勾选一个任务！",
+                syncDone: "✓ 同步完成"
+            },
+            en: {
+                // 顶栏与左侧控制面板
+                timezoneLabel: "🌍 Timezone Sync",
+                dataSourceLabel: "📥 Data Sources",
+                syncCanvasBtn: "Sync Canvas",
+                syncCourseraBtn: "Sync Coursera",
+                syncCourseBtn: "Import .ics",
+                taskListLabel: "📋 Task Overview",
+                btnAccount: "Account",
+
+                // 右侧作息分析模块
+                analysisTitle: "Routine Tracking & Analysis",
+                btnDay: "Day",
+                btnWeek: "Week",
+                btnMonth: "Month",
+                metricRhythm: "Rhythm Profile",
+                metricFocus: "Focus Style",
+                analyzing: "Analyzing...",
+                loadingRhythm: "Reading your task rhythm...",
+
+                // AI 聊天模块
+                aiWelcome: "👋 Hello! I'm Nexus, your smart academic assistant. Tell me your tasks, or type '/plan' to let me schedule for you.",
+                statusOnline: "Online",
+                chatPlaceholder: "Enter task name to decompose...",
+                sendBtn: "Send",
+
+                // 账户登录弹窗
+                authHint: "Sign in using username or email with password.",
+                btnSignInTab: "Sign in",
+                btnSignUpTab: "Sign up",
+                authUsernamePlaceholder: "Username",
+                authEmailPlaceholder: "Email",
+                authIdPlaceholder: "Username or email",
+                authPasswordPlaceholder: "Password",
+
+                // 任务详情弹窗
+                modalTitleText: "Task Details",
+                setColorLabel: "Label Color:",
+                saveColorBtn: "Save",
+                deleteTaskBtn: "Remove Node",
+                tzPlaceholder: "e.g., America/Chicago",
+
+                // 🌟 新增：JS 内部硬编码文本国际化
+                alertRequireUser: "Please Sign in or Sign up first before syncing or creating tasks.",
+                alertSignUp: "Registration requires username, email, and at least 6 characters for password.",
+                alertSignIn: "Sign in requires username or email, and password.",
+                alertAuthFail: "Account operation failed: ",
+                checkInput: "Please check your input.",
+                alertColorFail: "Failed to save color. Please check if the backend update endpoint is configured.",
+                confirmDeleteTask: "Are you sure you want to remove this task node?",
+                alertDeleteFail: "Delete failed",
+                defaultReco: "Import more tasks to receive more stable schedule recommendations.",
+                serviceUnavailable: "Unavailable",
+                tryLater: "Try later",
+                analyticsNoResponse: "The routine analysis service is temporarily not responding.",
+                noTasks: "No pending tasks",
+                alertSelectFile: "Please select a file",
+                syncing: "Syncing...",
+                syncFail: "Sync failed: ",
+                uploadFail: "Upload failed",
+                alertSelectIcs: "Please select an .ics file",
+                icsUploadFail: "Failed to upload course schedule",
+                aiConnectFail: "❌ Failed to connect to assistant",
+                sysNotifyImport: "(System Notice) Imported ",
+                sysNotifyRequest: " data, requesting AI analysis...",
+                aiAnalysisFail: "❌ Failed to analyze assignment data, please try again.",
+                plannerHeader: "✨ AI Smart Scheduling Recommendations",
+                deleteLabel: "Delete",
+                addLabel: "Add",
+                unnamedPlan: "Unnamed Plan",
+                aiSuggestCancel: "AI suggested cancellation",
+                scheduleLater: "Schedule later",
+                suggestedExecution: "Suggested Execution: ",
+                applyPlanBtn: "Apply Selected Plans",
+                alertNoTaskChecked: "Please check at least one task!",
+                syncDone: "✓ Sync Complete"
+            }
         };
-    });
 
-    function initCalendar(timezone) {
-        const calendarEl = document.getElementById('calendar');
-        calendar = new FullCalendar.Calendar(calendarEl, {
-            initialView: 'dayGridMonth',
-            height: '100%',
-            headerToolbar: {
-                left: 'prev,next today',
-                center: 'title',
-                right: 'dayGridMonth,listWeek'
-            },
-            events: `/api/tasks?timezone=${timezone}`,
-            eventDataTransform: function(task) {
-                // 💡 在日历渲染时区分 AI 生成的任务颜色
-                let evColor = '#3b82f6'; // 原生作业蓝色
-                if (task.title.includes('[AI')) evColor = '#8b5cf6'; // AI作业紫色
+        // 🌟 核心优化：高质感悬浮通知系统
+        function showToast(message, type = 'info') {
+            const container = document.getElementById('toast-container');
+            if (!container) return;
+            const toast = document.createElement('div');
+            toast.className = `toast ${type}`;
+            toast.innerText = message;
+            container.appendChild(toast);
 
-                return {
-                    id: task.id,
-                    title: task.title,
-                    start: task.localDueDate,
-                    extendedProps: {
-                        taskId: task.id,
-                        description: task.description,
-                        formattedDate: task.localDueDate
-                    },
-                    color: evColor
-                };
-            },
-            eventDidMount: function(info) {
-                const desc = info.event.extendedProps.description || "暂无详情";
-                tippy(info.el, {
-                    content: `<div style="font-family: Inter; padding: 4px;">
+            // 触发回流实现动效
+            toast.offsetHeight;
+            toast.style.opacity = '1';
+            toast.style.transform = 'translateY(0)';
+
+            // 3秒后淡出移除
+            setTimeout(() => {
+                toast.style.opacity = '0';
+                toast.style.transform = 'translateY(-20px)';
+                setTimeout(() => toast.remove(), 300);
+            }, 3000);
+        }
+
+        // 🌟 降维打击：直接全局重写浏览器的 alert 方法，你以前所有的 alert("...") 都会自动变成精美的 Toast！
+        window.alert = function (msg) {
+            const lang = localStorage.getItem('appLang') || 'zh';
+            // 根据常见中文关键字智能匹配通知颜色
+            if (msg.includes('失败') || msg.includes('错') || msg.includes('请先')) {
+                showToast(msg, 'error');
+            } else if (msg.includes('成功') || msg.includes('完成') || msg.includes('🎉')) {
+                showToast(msg, 'success');
+            } else {
+                showToast(msg, 'info');
+            }
+        };
+
+        // 🌟 核心优化：护眼深色模式控制
+        function toggleTheme() {
+            const currentTheme = document.documentElement.getAttribute('data-theme') || 'light';
+            const newTheme = currentTheme === 'light' ? 'dark' : 'light';
+            document.documentElement.setAttribute('data-theme', newTheme);
+            localStorage.setItem('appTheme', newTheme);
+            document.getElementById('themeToggleBtn').innerText = newTheme === 'light' ? '🌙' : '☀️';
+        }
+
+        function applyLanguage() {
+            const lang = localStorage.getItem('appLang') || 'zh';
+            const dict = translations[lang];
+            if (!dict) return;
+
+            // 静态标签及 placeholder 批量替换
+            document.querySelectorAll('[data-i18n]').forEach(el => {
+                const key = el.getAttribute('data-i18n');
+                if (dict[key]) el.innerHTML = dict[key];
+            });
+            document.querySelectorAll('[data-i18n-placeholder]').forEach(el => {
+                const key = el.getAttribute('data-i18n-placeholder');
+                if (dict[key]) el.placeholder = dict[key];
+            });
+
+            // 控制语言按钮本身的文案显示
+            const langBtn = document.getElementById('langToggleBtn');
+            if (langBtn) {
+                langBtn.innerText = lang === 'zh' ? "🌐 English" : "🌐 中文";
+            }
+
+            // 联动重刷当前打开着的弹窗状态文本
+            if (document.getElementById('authModal').style.display === 'block') {
+                if (currentUser) {
+                    document.getElementById('authModalTitle').innerText = lang === 'zh' ? '账户中心' : 'Account Center';
+                } else {
+                    document.getElementById('authModalTitle').innerText = authMode === 'signup' ? dict.btnSignUpTab : dict.btnSignInTab;
+                    document.getElementById('authSubmitBtn').innerText = authMode === 'signup' ? dict.btnSignUpTab : dict.btnSignInTab;
+                }
+            }
+
+            // 日历核心时区/语言联动
+            if (window.calendar && typeof calendar.setOption === 'function') {
+                calendar.setOption('locale', dict.calendarLocale || (lang === 'zh' ? 'zh-cn' : 'en'));
+            }
+        }
+
+        function toggleLanguage() {
+            let lang = localStorage.getItem('appLang') || 'zh';
+            lang = lang === 'zh' ? 'en' : 'zh';
+            localStorage.setItem('appLang', lang);
+            applyLanguage();
+
+            const currentTz = document.getElementById('timezoneSelect').value;
+            // 传入 true 表示“静默刷新”，不再将文字变为“分析中”，而是后台获取后直接替换
+            loadLifestyleAnalysis(getActiveAnalysisPeriod(), currentTz, true);
+
+            // 重新拉取任务，触发问题 5 的动态翻译
+            loadTasks(currentTz);
+            if (calendar) calendar.refetchEvents();
+        }
+
+        let calendar;
+        let currentUser = JSON.parse(localStorage.getItem('nexusUser') || 'null');
+        let authMode = 'signin';
+        let currentOpenedTaskId = null;
+
+        document.addEventListener('DOMContentLoaded', function () {
+            const savedTheme = localStorage.getItem('appTheme') || 'light';
+            document.documentElement.setAttribute('data-theme', savedTheme);
+            const themeBtn = document.getElementById('themeToggleBtn');
+            if (themeBtn) themeBtn.innerText = savedTheme === 'light' ? '🌙' : '☀️';
+
+            let initialTz = document.getElementById('timezoneSelect').value;
+            if (!initialTz) {
+                initialTz = Intl.DateTimeFormat().resolvedOptions().timeZone || 'America/Chicago';
+                document.getElementById('timezoneSelect').value = initialTz;
+            }
+            setAuthMode('signin');
+            renderAuthState();
+            loadTimezones(initialTz);
+            initCalendar(initialTz);
+            applyLanguage();
+            loadTasks(initialTz);
+            loadLifestyleAnalysis('day', initialTz);
+
+            window.onclick = function (event) {
+                const modal = document.getElementById('taskModal');
+                if (event.target == modal) closeModal();
+                const authModal = document.getElementById('authModal');
+                if (event.target == authModal) closeAuthModal();
+            };
+
+            // 初始化可拖拽布局
+            // 1. 整体的水平拖拽（左-中-右）
+            Split(['#controls', '#calendar-container', '#right-rail'], {
+                sizes: [20, 50, 30],
+                minSize: [240, 400, 320],
+                gutterSize: 10,
+            });
+
+            // 2. 左侧控制台的垂直拖拽（工具区 vs 待办列表）
+            Split(['#controls-top', '#controls-bottom'], {
+                direction: 'vertical',
+                sizes: [55, 45],
+                minSize: [220, 150],
+                gutterSize: 10,
+            });
+
+            // 3. 右侧面板的垂直拖拽（作息分析 vs AI 助手）
+            Split(['#life-panel', '#chat-container'], {
+                direction: 'vertical',
+                sizes: [45, 55],
+                minSize: [200, 250],
+                gutterSize: 10,
+            });
+            const currentLang = localStorage.getItem('appLang') || 'zh';
+            appendMessage('ai', translations[currentLang].aiWelcome);
+        });
+
+        function getUserId() {
+            return currentUser && currentUser.id ? currentUser.id : null;
+        }
+
+        function requireUser() {
+            if (getUserId()) return true;
+            const lang = localStorage.getItem('appLang') || 'zh';
+            alert(translations[lang].alertRequireUser);
+            return false;
+        }
+
+        function renderAuthState() {
+            const authForm = document.getElementById('authForm');
+            const authUser = document.getElementById('authUser');
+            const authGuestNav = document.getElementById('authGuestNav');
+            const authUserNav = document.getElementById('authUserNav');
+
+            if (currentUser) {
+                authForm.style.display = 'none';
+                authUser.style.display = 'flex';
+                document.getElementById('authUserName').innerText = currentUser.username || currentUser.name || 'Student';
+                document.getElementById('authUserEmail').innerText = currentUser.email || '';
+
+                if (authGuestNav) authGuestNav.style.display = 'none';
+                if (authUserNav) authUserNav.style.display = 'flex';
+                document.getElementById('topAuthName').innerText = currentUser.username || currentUser.name || 'Student';
+            } else {
+                authForm.style.display = 'flex';
+                authUser.style.display = 'none';
+
+                if (authGuestNav) authGuestNav.style.display = 'flex';
+                if (authUserNav) authUserNav.style.display = 'none';
+            }
+        }
+
+        function openAuthModal(mode) {
+            document.getElementById('authModal').style.display = 'block';
+            if (currentUser || mode === 'account') {
+                document.getElementById('authForm').style.display = 'none';
+                document.getElementById('authUser').style.display = 'flex';
+                const lang = localStorage.getItem('appLang') || 'zh';
+                document.getElementById('authModalTitle').innerText = lang === 'zh' ? '账户中心' : 'Account Center';
+            } else {
+                document.getElementById('authForm').style.display = 'flex';
+                document.getElementById('authUser').style.display = 'none';
+                setAuthMode(mode);
+            }
+        }
+
+        function closeAuthModal() {
+            document.getElementById('authModal').style.display = 'none';
+        }
+
+        function setAuthMode(mode) {
+            authMode = mode;
+            const isSignUp = mode === 'signup';
+            const lang = localStorage.getItem('appLang') || 'zh';
+            const dict = translations[lang];
+
+            document.getElementById('authModalTitle').innerText = isSignUp ? dict.btnSignUpTab : dict.btnSignInTab;
+            document.getElementById('authSubmitBtn').innerText = isSignUp ? dict.btnSignUpTab : dict.btnSignInTab;
+
+            document.getElementById('authUsername').style.display = isSignUp ? 'block' : 'none';
+            document.getElementById('authEmail').style.display = isSignUp ? 'block' : 'none';
+            document.getElementById('authIdentifier').style.display = isSignUp ? 'none' : 'block';
+
+            document.getElementById('authHint').innerText = isSignUp
+                ? (lang === 'zh' ? '注册需要用户名、邮箱和至少 6 位密码。' : 'Registration requires username, email, and at least 6 characters.')
+                : (lang === 'zh' ? '使用用户名或邮箱，加密码登录。' : 'Sign in using username or email with password.');
+        }
+
+        async function submitCurrentAuth() {
+            if (authMode === 'signup') {
+                await signUp();
+            } else {
+                await signIn();
+            }
+        }
+
+        async function signUp() {
+            const username = document.getElementById('authUsername').value.trim();
+            const email = document.getElementById('authEmail').value.trim();
+            const password = document.getElementById('authPassword').value;
+            const lang = localStorage.getItem('appLang') || 'zh';
+            if (!username || !email || password.length < 6) {
+                alert(translations[lang].alertSignUp);
+                return;
+            }
+            await submitAuth('/api/auth/signup', { username, email, password });
+        }
+
+        async function signIn() {
+            const identifier = document.getElementById('authIdentifier').value.trim();
+            const password = document.getElementById('authPassword').value;
+            const lang = localStorage.getItem('appLang') || 'zh';
+            if (!identifier || !password) {
+                alert(translations[lang].alertSignIn);
+                return;
+            }
+            await submitAuth('/api/auth/signin', { identifier, password });
+        }
+
+        async function submitAuth(url, payload) {
+            const timezone = document.getElementById('timezoneSelect').value;
+            const lang = localStorage.getItem('appLang') || 'zh';
+            const response = await fetch(url, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ ...payload, timezone })
+            });
+
+            if (!response.ok) {
+                const error = await response.json().catch(async () => ({ message: await response.text() }));
+                alert(translations[lang].alertAuthFail + (error.message || translations[lang].checkInput));
+                return;
+            }
+
+            currentUser = await response.json();
+            localStorage.setItem('nexusUser', JSON.stringify(currentUser));
+            renderAuthState();
+            closeAuthModal();
+            refreshUserScopedViews();
+        }
+
+        function signOut() {
+            currentUser = null;
+            localStorage.removeItem('nexusUser');
+            renderAuthState();
+            refreshUserScopedViews();
+        }
+
+        function taskApiUrl(timezone) {
+            const params = new URLSearchParams({ timezone });
+            if (getUserId()) params.set('userId', getUserId());
+            return `/api/tasks?${params.toString()}`;
+        }
+
+        function analyticsApiUrl(period) {
+            const userTz = (currentUser && currentUser.timezone) ? currentUser.timezone : Intl.DateTimeFormat().resolvedOptions().timeZone;
+            const currentLang = localStorage.getItem('appLang') || 'zh';
+            // 🌟 核心修复：向后端同步透传当前语言参数 lang
+            const params = new URLSearchParams({ period, timezone: userTz, lang: currentLang });
+            if (getUserId()) params.set('userId', getUserId());
+            return `/api/analytics/lifestyle?${params.toString()}`;
+        }
+
+        function courseApiUrl(timezone) {
+            const params = new URLSearchParams({ timezone });
+            if (getUserId()) params.set('userId', getUserId());
+            return getUserId() ? `/api/courses?${params.toString()}` : '/api/courses?userId=-1';
+        }
+
+        function refreshUserScopedViews() {
+            const timezone = document.getElementById('timezoneSelect').value;
+            if (calendar) {
+                calendar.removeAllEventSources();
+                calendar.addEventSource({ url: taskApiUrl(timezone), eventDataTransform: taskToCalendarEvent });
+                calendar.addEventSource({ url: courseApiUrl(timezone), eventDataTransform: courseToCalendarEvent });
+            }
+            loadTasks(timezone);
+            loadLifestyleAnalysis(getActiveAnalysisPeriod());
+        }
+
+        async function loadTimezones(defaultTimezone) {
+            try {
+                const zones = Intl.supportedValuesOf('timeZone');
+                const datalist = document.getElementById('tz-list');
+                datalist.innerHTML = zones.map(zone => `<option value="${zone}"></option>`).join('');
+
+                const input = document.getElementById('timezoneSelect');
+                input.value = zones.includes(defaultTimezone) ? defaultTimezone : 'America/Chicago';
+            } catch (e) {
+                console.error("加载时区失败", e);
+            }
+        }
+
+        function taskToCalendarEvent(task) {
+            const lang = localStorage.getItem('appLang') || 'zh';
+            const transTitle = translateDynamicText(task.title, 'title', lang);
+            const transDesc = translateDynamicText(task.description, 'desc', lang);
+
+            let evColor = task.color || '#3b82f6';
+            if ((task.title.includes('[AI]') || task.title.includes('[智能规划]')) && !task.color) evColor = '#8b5cf6';
+
+            let startIso = task.localDueDate;
+            let endIso = task.localDueDate;
+            try {
+                if (task.localDueDate) {
+                    let parsed = new Date(task.localDueDate.replace(' ', 'T'));
+                    if (!isNaN(parsed.valueOf())) {
+                        startIso = parsed.toISOString();
+                        endIso = new Date(parsed.getTime() + 2 * 60 * 60 * 1000).toISOString();
+                    }
+                }
+            } catch (e) { }
+
+            return {
+                id: task.id,
+                title: transTitle,
+                start: startIso,
+                end: endIso,
+                extendedProps: {
+                    taskId: task.id,
+                    description: transDesc,
+                    formattedDate: task.localDueDate,
+                    rawStart: startIso, // 携带纯净时间用于编辑回显
+                    color: task.color
+                },
+                color: evColor
+            };
+        }
+
+        function courseToCalendarEvent(event) {
+            let startIso = event.start;
+            let endIso = event.end;
+            try {
+                if (event.start) {
+                    let parsedStart = new Date(event.start.replace(' ', 'T'));
+                    if (!isNaN(parsedStart.valueOf())) startIso = parsedStart.toISOString();
+                }
+                if (event.end) {
+                    let parsedEnd = new Date(event.end.replace(' ', 'T'));
+                    if (!isNaN(parsedEnd.valueOf())) endIso = parsedEnd.toISOString();
+                }
+            } catch (e) { console.warn('课程时间解析失败', e); }
+
+            return {
+                id: 'course-' + event.id,
+                title: event.title,
+                start: startIso,
+                end: endIso,
+                extendedProps: {
+                    courseId: event.id, // 专门的课程 ID 标记
+                    description: event.location || '课程地点/时间',
+                    formattedDate: `${(event.start || '').replace('T', ' ')} - ${(event.end || '').includes('T') ? event.end.split('T')[1] : (event.end || '')}`
+                },
+                color: '#16b99a'
+            };
+        }
+
+        function initCalendar(timezone) {
+            const calendarEl = document.getElementById('calendar');
+            calendar = new FullCalendar.Calendar(calendarEl, {
+                initialView: 'dayGridMonth',
+                height: '100%',
+                headerToolbar: {
+                    left: 'prev,next today',
+                    center: 'title',
+                    right: 'dayGridMonth,timeGridWeek,timeGridDay,listWeek'
+                },
+                eventSources: [
+                    { url: taskApiUrl(timezone), eventDataTransform: taskToCalendarEvent },
+                    { url: courseApiUrl(timezone), eventDataTransform: courseToCalendarEvent }
+                ],
+                // ... 保持 eventDidMount 的 tippy 提示词不变 ...
+                eventDidMount: function (info) {
+                    const desc = info.event.extendedProps.description || "暂无详情";
+                    tippy(info.el, {
+                        content: `<div style="font-family: Inter; padding: 4px;">
                                 <strong style="font-size: 13px;">${info.event.title}</strong><br>
                                 <div style="font-size:12px; margin-top: 4px; color:#94a3b8; max-height:60px; overflow:hidden;">${linkify(desc)}</div>
                               </div>`,
-                    allowHTML: true,
-                    interactive: true,
-                    theme: 'light-border',
-                    appendTo: () => document.body,
-                    placement: 'top',
-                });
-            },
-            eventClick: function(info) {
-                showModal(info.event.title, info.event.extendedProps.formattedDate, info.event.extendedProps.description, info.event.extendedProps.taskId);
-            }
-        });
-        calendar.render();
-        setTimeout(() => { calendar.updateSize(); }, 100);
-    }
-
-    function showModal(title, date, desc, taskId) {
-        document.getElementById('modalTitle').innerText = title;
-        document.getElementById('modalDate').innerText = "Deadline: " + date;
-        document.getElementById('modalDescription').innerHTML = linkify(desc) || "暂无详细描述信息。";
-
-        const deleteBtn = document.getElementById('deleteTaskBtn');
-        if (taskId) {
-            deleteBtn.style.display = 'inline-block';
-            deleteBtn.onclick = function() { deleteTask(taskId); };
-        } else {
-            deleteBtn.style.display = 'none';
+                        allowHTML: true, interactive: true, theme: 'dark', appendTo: () => document.body, placement: 'top',
+                    });
+                },
+                eventClick: function (info) {
+                    // 👈 把 extendedProps 里的 taskId 和 courseId 分别传进去
+                    showModal(
+                        info.event.title,
+                        info.event.extendedProps.formattedDate,
+                        info.event.extendedProps.description,
+                        info.event.extendedProps.taskId,
+                        info.event.color,
+                        info.event.extendedProps.courseId
+                    );
+                }
+            });
+            calendar.render();
+            setTimeout(() => { calendar.updateSize(); }, 100);
         }
 
-        document.getElementById('taskModal').style.display = 'block';
-    }
+        // 🌟 3. 修改：让弹窗智能识别当前点的是 Task 还是 Course
+        let currentOpenedCourseId = null; // 新增全局变量
 
-    async function deleteTask(taskId) {
-        if (!confirm("确定要移除这个任务节点吗？")) return;
+        // 🌟 改造 showModal 签名以接收 rawDate，并绑定编辑按钮
+        function showModal(title, date, desc, taskId, color, courseId = null, rawDate = null) {
+            const lang = localStorage.getItem('appLang') || 'zh';
+            currentOpenedTaskId = taskId;
 
-        try {
-            const response = await fetch(`/api/tasks/${taskId}`, { method: 'DELETE' });
-            if (response.ok) {
-                closeModal();
-                calendar.refetchEvents();
-                loadTasks(document.getElementById('timezoneSelect').value);
+            document.getElementById('modalTitle').innerText = title;
+            document.getElementById('modalDate').innerText = "时间: " + date;
+            document.getElementById('modalDescription').innerHTML = linkify(desc) || (lang === 'zh' ? "暂无详细描述。" : "No description.");
+            document.getElementById('taskColorPicker').value = color || '#3b82f6';
+
+            const deleteBtn = document.getElementById('deleteTaskBtn');
+            const editBtn = document.getElementById('editTaskBtn');
+
+            if (taskId) {
+                deleteBtn.style.display = 'inline-block';
+                editBtn.style.display = 'inline-block';
+                deleteBtn.onclick = function () { deleteTask(taskId); };
+                editBtn.onclick = function () { closeModal(); openEditModal(taskId, title, desc, rawDate); };
+            } else if (courseId) {
+                deleteBtn.style.display = 'inline-block';
+                editBtn.style.display = 'none'; // 课程暂不支持前端硬改
+                deleteBtn.onclick = function () { deleteCourse(courseId); };
             } else {
-                alert("删除失败");
+                deleteBtn.style.display = 'none';
+                editBtn.style.display = 'none';
             }
-        } catch (e) {
-            console.error("删除出错", e);
+            document.getElementById('taskModal').style.display = 'block';
         }
-    }
 
-    function closeModal() {
-        document.getElementById('taskModal').style.display = 'none';
-    }
+        // 🌟 打开编辑弹窗
+        // 🌟 修改：支持起止时间的双向绑定回显
+        function openEditModal(taskId = null, title = '', desc = '', rawDate = '', endDate = '') {
+            if (!requireUser()) return;
+            document.getElementById('editTaskId').value = taskId || '';
+            document.getElementById('editTaskName').value = title.replace('[AI] ', '').replace('[智能] ', '');
+            document.getElementById('editTaskDesc').value = desc;
+            
+            // 回显时，丢弃带时区的 'Z'，保留纯净的 'YYYY-MM-DDTHH:mm' 格式赋值给 input
+            document.getElementById('editTaskDate').value = rawDate ? rawDate.substring(0, 16) : '';
+            // 如果后端有结束时间则显示，没有的话默认填起始时间
+            document.getElementById('editTaskEndDate').value = endDate ? endDate.substring(0, 16) : (rawDate ? rawDate.substring(0, 16) : '');
+            
+            document.getElementById('editTaskModal').style.display = 'block';
+        }
 
-    function onTimezoneChange() {
-        const selectedTz = document.getElementById('timezoneSelect').value;
-        calendar.setOption('events', `/api/tasks?timezone=${selectedTz}`);
-        loadTasks(selectedTz);
-    }
+        // 🌟 修改：抛弃 new Date() 的时区绑架，直接传递 ISO 格式基础字符串给后端
+        async function saveManualTask() {
+            const taskId = document.getElementById('editTaskId').value;
+            const title = document.getElementById('editTaskName').value.trim();
+            const startStr = document.getElementById('editTaskDate').value;
+            const endStr = document.getElementById('editTaskEndDate').value;
+            const desc = document.getElementById('editTaskDesc').value.trim();
+            
+            if (!title || !startStr) return alert("请输入任务名称和起始时间！");
+            
+            // 组装纯净时间字符串，不要在这里做 new Date()
+            const taskData = { 
+                title: title, 
+                description: desc, 
+                dueDate: startStr + ":00", // 补齐秒数，符合 LocalDateTime 格式
+                // 暂时利用 description 的扩展性存一下结束时间（稍后去后端改表结构最彻底，这里暂时先存起始）
+            };
+            
+            const currentTz = document.getElementById('timezoneSelect').value;
+            
+            let url = `/api/tasks?userId=${getUserId()}&timezone=${encodeURIComponent(currentTz)}`;
+            let method = 'POST';
+            if (taskId) {
+                url = `/api/tasks/${taskId}?timezone=${encodeURIComponent(currentTz)}`;
+                method = 'PUT';
+            }
+            
+            try {
+                const res = await fetch(url, {
+                    method: method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(taskData)
+                });
+                if (res.ok) {
+                    document.getElementById('editTaskModal').style.display = 'none';
+                    calendar.refetchEvents();
+                    loadTasks(currentTz);
+                    loadLifestyleAnalysis(getActiveAnalysisPeriod(), currentTz, true);
+                } else alert("保存失败，请检查数据。");
+            } catch (e) { alert("网络错误"); }
+        }
 
-    async function loadTasks(timezone) {
-        const taskListEl = document.getElementById('taskList');
-        try {
-            const response = await fetch(`/api/tasks?timezone=${timezone}`);
-            const tasks = await response.json();
-            taskListEl.innerHTML = tasks.length ? tasks.map(t => `
-                <div class="task-item" onclick="showModal('${t.title.replace(/'/g, "\\'")}', '${t.localDueDate}', '${(t.description || "").replace(/'/g, "\\'")}', ${t.id})">
-                    <strong>${t.title}</strong>
-                    <div class="date">🕒 ${t.localDueDate}</div>
-                </div>
-            `).join('') : "<div style='color: #94a3b8; font-size: 12px; text-align:center; padding:20px;'>暂无待办任务</div>";
-        } catch (e) { console.error("加载列表失败", e); }
-    }
+        // 🌟 4. 新增：专属于课程的删除方法
+        async function deleteCourse(courseId) {
+            const lang = localStorage.getItem('appLang') || 'zh';
+            if (!confirm(lang === 'zh' ? "确定要从日程中移除这节课吗？" : "Are you sure you want to remove this course session?")) return;
 
-    async function uploadFile(type) {
-        const fileInput = document.getElementById(type + 'File');
-        const file = fileInput.files[0];
-        if (!file) { alert("请选择文件"); return; }
-        const formData = new FormData();
-        formData.append("file", file);
-        try {
-            const response = await fetch(`/api/tasks/upload/${type}`, { method: 'POST', body: formData });
-            const result = await response.text();
-            alert("同步状态: " + result);
-            if (response.ok) {
+            try {
+                const response = await fetch(`/api/courses/${courseId}`, { method: 'DELETE' });
+                if (response.ok) {
+                    closeModal();
+                    calendar.refetchEvents();
+                } else {
+                    alert(translations[lang].alertDeleteFail);
+                }
+            } catch (e) {
+                console.error("删除课程出错", e);
+            }
+        }
+
+        async function updateTaskColor() {
+            if (!currentOpenedTaskId) return;
+            const newColor = document.getElementById('taskColorPicker').value;
+            const lang = localStorage.getItem('appLang') || 'zh';
+
+            try {
+                await fetch(`/api/tasks/${currentOpenedTaskId}/color`, {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ color: newColor })
+                });
+
                 const currentTz = document.getElementById('timezoneSelect').value;
                 calendar.refetchEvents();
                 loadTasks(currentTz);
+                closeModal();
+            } catch (e) {
+                alert(translations[lang].alertColorFail);
             }
-        } catch (e) { alert("上传失败"); }
-    }
+        }
 
-    async function sendMessage() {
-        const input = document.getElementById('userInput');
-        const message = input.value;
-        if (!message) return;
+        async function deleteTask(taskId) {
+            const lang = localStorage.getItem('appLang') || 'zh';
+            if (!confirm(translations[lang].confirmDeleteTask)) return;
 
-        appendMessage('user', message);
-        input.value = '';
+            try {
+                const response = await fetch(`/api/tasks/${taskId}`, { method: 'DELETE' });
+                if (response.ok) {
+                    closeModal();
+                    calendar.refetchEvents();
+                    const currentTz = document.getElementById('timezoneSelect').value;
+                    loadTasks(currentTz);
+                    loadLifestyleAnalysis(getActiveAnalysisPeriod(), currentTz);
+                } else {
+                    alert(translations[lang].alertDeleteFail);
+                }
+            } catch (e) {
+                console.error("删除出错", e);
+            }
+        }
 
-        try {
-            const response = await fetch('/api/ai/chat', {
+        function closeModal() {
+            document.getElementById('taskModal').style.display = 'none';
+        }
+
+        function onTimezoneChange() {
+            const selectedTz = document.getElementById('timezoneSelect').value;
+            refreshUserScopedViews();
+            loadTasks(selectedTz);
+            loadLifestyleAnalysis(getActiveAnalysisPeriod(), selectedTz);
+        }
+
+        function getActiveAnalysisPeriod() {
+            const activeTab = document.querySelector('.analysis-tabs button.active');
+            return activeTab ? activeTab.dataset.period : 'day';
+        }
+
+        function switchAnalysisPeriod(period, button) {
+            document.querySelectorAll('.analysis-tabs button').forEach(tab => tab.classList.remove('active'));
+            button.classList.add('active');
+            loadLifestyleAnalysis(period);
+        }
+
+        // 为 AI 任务配备动态翻译拦截器
+        function translateDynamicText(text, type, lang) {
+            if (!text) return text;
+            if (type === 'title') {
+                if (lang === 'en' && text.startsWith('[智能规划]')) return text.replace('[智能规划]', '[AI]');
+                if (lang === 'zh' && text.startsWith('[AI]')) return text.replace('[AI]', '[智能规划]');
+            } else if (type === 'desc') {
+                if (lang === 'en') return text.replace(/Nexus 生成子任务，预计耗时 ([\d.]+) 小时/, 'Nexus subtask, estimated: $1 hrs');
+                if (lang === 'zh') return text.replace(/Nexus subtask, estimated: ([\d.]+) hrs/, 'Nexus 生成子任务，预计耗时 $1 小时');
+            }
+            return text;
+        }
+
+        async function loadTasks(timezone) {
+            const taskListEl = document.getElementById('taskList');
+            const lang = localStorage.getItem('appLang') || 'zh';
+            try {
+                const response = await fetch(taskApiUrl(timezone));
+                const tasks = await response.json();
+
+                if (!tasks.length) {
+                    taskListEl.innerHTML = `<div class="empty-state-box"><div class="empty-state-icon">🎯</div><div style="font-size: 13px; font-weight: 500;">${translations[lang].noTasks}</div></div>`;
+                    return;
+                }
+
+                taskListEl.innerHTML = tasks.map(t => {
+                    const transTitle = translateDynamicText(t.title, 'title', lang);
+                    const transDesc = translateDynamicText(t.description, 'desc', lang);
+                    return `
+                    <div class="task-item" onclick="showModal('${transTitle.replace(/'/g, "\\'")}', '${t.localDueDate}', '${transDesc.replace(/'/g, "\\'")}', ${t.id}, '${t.color || ''}', null, '${t.dueDate || t.localDueDate}')">
+                        <strong>${transTitle}</strong>
+                        <div class="date">🕒 ${t.localDueDate}</div>
+                    </div>
+                `}).join('');
+            } catch (e) { console.error("加载列表失败", e); }
+        }
+
+        async function loadLifestyleAnalysis(period, timezone, isSilent = false) {
+            const barsEl = document.getElementById('rhythmBars');
+            const lang = localStorage.getItem('appLang') || 'zh';
+            const dict = translations[lang];
+
+            if (!isSilent) {
+                document.getElementById('rhythmLabel').innerText = dict.analyzing;
+                document.getElementById('focusStyle').innerText = dict.analyzing;
+                document.getElementById('lifeRecommendation').innerText = dict.loadingRhythm || 'Loading...';
+                barsEl.innerHTML = '';
+            }
+            try {
+                const response = await fetch(analyticsApiUrl(period, timezone));
+                const data = await response.json();
+
+                document.getElementById('rhythmLabel').innerText = data.rhythmLabel || dict.analyzing;
+                document.getElementById('focusStyle').innerText = data.focusStyle || dict.analyzing;
+                document.getElementById('lifeRecommendation').innerText = data.recommendation || dict.defaultReco;
+
+                const hourly = data.hourlyStudy || [];
+
+                // 🌟 核心优化：作息面板图表的无数据空状态美化
+                if (!hourly.length || Math.max(...hourly.map(item => item.hours || 0)) === 0) {
+                    barsEl.innerHTML = `
+                        <div class="empty-state-box" style="width: 100%; grid-column: span 24;">
+                            <div class="empty-state-icon" style="font-size:24px;">📊</div>
+                            <div style="font-size: 11px;">${lang === 'zh' ? '暂无打卡计时，导入数据解锁统计' : 'No data tracked yet.'}</div>
+                        </div>`;
+                    return;
+                }
+
+                const maxHours = Math.max(1, ...hourly.map(item => item.hours || 0));
+                barsEl.innerHTML = `
+                    <div class="chart-y-axis"><span>${maxHours.toFixed(1)}h</span><span>0h</span></div>
+                    ${hourly.map(item => `
+                        <div class="hour-bar-wrap" data-tippy-content="<div style='font-size:11px;font-weight:600;'>${item.hour}:00</div><div style='color:var(--mint);font-size:12px;font-weight:700;margin-top:2px;'>${item.hours.toFixed(1)} hrs</div>">
+                            <div class="hour-bar" style="height:${Math.max(2, (item.hours / maxHours) * 118)}px"></div>
+                            <span class="hour-label">${item.hour}</span>
+                        </div>
+                    `).join('')}
+                `;
+
+                // 🌟 核心优化：图表组件动态挂载精致的 Tippy.js 黑底气泡卡片
+                tippy('.hour-bar-wrap', {
+                    allowHTML: true,
+                    theme: 'dark',
+                    placement: 'top',
+                    animation: 'shift-away',
+                    duration: [150, 100],
+                    appendTo: () => document.body
+                });
+
+            } catch (e) {
+                document.getElementById('rhythmLabel').innerText = dict.serviceUnavailable;
+                document.getElementById('focusStyle').innerText = dict.tryLater;
+                document.getElementById('lifeRecommendation').innerText = dict.analyticsNoResponse;
+                barsEl.innerHTML = '';
+            }
+        }
+
+        async function uploadFile(type) {
+            if (!requireUser()) return;
+            const fileInput = document.getElementById(type + 'File');
+            const file = fileInput.files[0];
+            const lang = localStorage.getItem('appLang') || 'zh';
+            if (!file) { alert(translations[lang].alertSelectFile); return; }
+
+            const formData = new FormData();
+            formData.append("file", file);
+
+            const btn = event.target;
+            const originalText = btn.innerText;
+            btn.innerText = translations[lang].syncing;
+            btn.disabled = true;
+
+            try {
+                const response = await fetch(`/api/tasks/upload/${type}?userId=${getUserId()}`, { method: 'POST', body: formData });
+                const result = await response.text();
+
+                if (response.ok) {
+                    const currentTz = document.getElementById('timezoneSelect').value;
+                    calendar.refetchEvents();
+                    loadTasks(currentTz);
+                    loadLifestyleAnalysis(getActiveAnalysisPeriod());
+                    triggerAutoAiPlanner(type);
+                } else {
+                    alert(translations[lang].syncFail + result);
+                }
+            } catch (e) {
+                alert(translations[lang].uploadFail);
+            } finally {
+                btn.innerText = originalText;
+                btn.disabled = false;
+                fileInput.value = '';
+            }
+        }
+
+        async function uploadIcsFile() {
+            if (!requireUser()) return;
+            const fileInput = document.getElementById('icsFile');
+            const file = fileInput.files[0];
+            const lang = localStorage.getItem('appLang') || 'zh';
+            if (!file) { alert(translations[lang].alertSelectIcs); return; }
+            const timezone = document.getElementById('timezoneSelect').value;
+            const formData = new FormData();
+            formData.append("file", file);
+            try {
+                const response = await fetch(`/api/courses/upload/ics?userId=${getUserId()}&timezone=${encodeURIComponent(timezone)}`, {
+                    method: 'POST',
+                    body: formData
+                });
+                const result = await response.text();
+                if (!response.ok) {
+                    alert(result);
+                    return;
+                }
+                alert(result);
+                calendar.refetchEvents();
+            } catch (e) {
+                alert(translations[lang].icsUploadFail);
+            } finally {
+                fileInput.value = '';
+            }
+        }
+
+        async function sendMessage() {
+            const input = document.getElementById('userInput');
+            const message = input.value;
+            const lang = localStorage.getItem('appLang') || 'zh';
+            if (!message) return;
+
+            appendMessage('user', message);
+            input.value = '';
+
+            // 🌟 核心优化：建立带三个闪烁圆点的 AI 思考加载容器
+            const messagesContainer = document.getElementById('messages');
+            const loadingDiv = document.createElement('div');
+            loadingDiv.className = 'message ai';
+            loadingDiv.id = 'ai-loading-placeholder';
+            loadingDiv.innerHTML = `<div class="typing-loader"><span></span><span></span><span></span></div>`;
+            messagesContainer.appendChild(loadingDiv);
+            messagesContainer.scrollTop = messagesContainer.scrollHeight;
+
+            try {
+                const response = await fetch('/api/ai/chat', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        message: message,
+                        userId: getUserId() ? String(getUserId()) : '',
+                        timezone: document.getElementById('timezoneSelect').value,
+                        lang: lang
+                    })
+                });
+                const data = await response.text();
+
+                // 🌟 请求结束，立刻摧毁加载框
+                if (document.getElementById('ai-loading-placeholder')) {
+                    document.getElementById('ai-loading-placeholder').remove();
+                }
+
+                const jsonMatch = data.match(/\[\s*\{.*\}\s*\]/s);
+                if (jsonMatch) {
+                    const textBefore = data.split(jsonMatch[0])[0];
+                    if (textBefore.trim()) appendMessage('ai', textBefore);
+                    appendAiPlanner(jsonMatch[0]);
+                } else {
+                    appendMessage('ai', data);
+                }
+            } catch (e) {
+                if (document.getElementById('ai-loading-placeholder')) {
+                    document.getElementById('ai-loading-placeholder').remove();
+                }
+                appendMessage('ai', translations[lang].aiConnectFail);
+            }
+        }
+
+        function triggerAutoAiPlanner(type) {
+            const platform = type === 'canvas' ? 'Canvas' : 'Coursera';
+            const lang = localStorage.getItem('appLang') || 'zh';
+
+            // 🌟 核心优化：大模型触发 Prompt 会根据当前系统语言自动切换中英版本
+            const autoMessage = lang === 'zh'
+                ? `我刚刚导入了最新的 ${platform} 作业数据。请结合我的作息习惯（晚上11点前必须休息，尽量不熬夜），查阅数据库中未来一周最紧急的任务，自动帮我拆解成每天的 To-Do List，并推荐执行时间。`
+                : `I have just imported the latest ${platform} assignment data. Please evaluate the most urgent assignments over the next week based on my routine profile, decompose them into structured daily tasks, and recommend specific execution hours.`;
+
+            appendMessage('user', translations[lang].sysNotifyImport + platform + translations[lang].sysNotifyRequest);
+
+            fetch('/api/ai/chat', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ message: message })
-            });
-            const data = await response.text();
-
-            const jsonMatch = data.match(/\[\s*\{.*\}\s*\]/s);
-            if (jsonMatch) {
-                const textBefore = data.split(jsonMatch[0])[0];
-                if (textBefore.trim()) appendMessage('ai', textBefore);
-                appendAiPlanner(jsonMatch[0]);
-            } else {
-                appendMessage('ai', data);
-            }
-        } catch (e) {
-            appendMessage('ai', '❌ 连接助理失败');
+                body: JSON.stringify({
+                    message: autoMessage,
+                    userId: getUserId() ? String(getUserId()) : '',
+                    timezone: document.getElementById('timezoneSelect').value,
+                    lang: lang
+                })
+            })
+                .then(res => res.text())
+                .then(data => {
+                    const jsonMatch = data.match(/\[\s*\{.*\}\s*\]/s);
+                    if (jsonMatch) {
+                        const textBefore = data.split(jsonMatch[0])[0];
+                        if (textBefore.trim()) appendMessage('ai', textBefore);
+                        appendAiPlanner(jsonMatch[0]);
+                    } else {
+                        appendMessage('ai', data);
+                    }
+                })
+                .catch(err => appendMessage('ai', translations[lang].aiAnalysisFail));
         }
-    }
 
-    function appendAiPlanner(jsonString) {
-        try {
-            const tasks = JSON.parse(jsonString);
-            const messagesContainer = document.getElementById('messages');
-            const plannerDiv = document.createElement('div');
-            plannerDiv.className = 'ai-planner-box';
-            plannerDiv.innerHTML = `
-            <div class="planner-header">✨ AI 智能排期建议</div>
+        function appendAiPlanner(jsonString) {
+            try {
+                const tasks = JSON.parse(jsonString);
+                const messagesContainer = document.getElementById('messages');
+                const plannerDiv = document.createElement('div');
+                const lang = localStorage.getItem('appLang') || 'zh';
+                const dict = translations[lang];
+
+                plannerDiv.className = 'ai-planner-box';
+                plannerDiv.innerHTML = `
+            <div class="planner-header">${dict.plannerHeader}</div>
             ${tasks.map((t, i) => `
                 <div class="planner-item">
                     <input type="checkbox" id="ai-step-${i}" checked
-                           data-title="${t.step}" data-hours="${t.estimatedHours}" data-date="${t.suggestedDate}">
-                    <label for="ai-step-${i}">${t.step} (${t.estimatedHours}h) <br><span>建议执行: ${t.suggestedDate ? t.suggestedDate.replace('T', ' ') : '稍后安排'}</span></label>
+                           data-action="${t.action || 'add'}" data-task-id="${t.taskId || ''}"
+                           data-title="${t.step || ''}" data-hours="${t.estimatedHours || 1}" data-date="${t.suggestedDate || ''}">
+                    <label for="ai-step-${i}">
+                        ${(t.action || 'add') === 'delete' ? dict.deleteLabel : dict.addLabel}：${t.step || dict.unnamedPlan} ${(t.action || 'add') === 'delete' ? '' : `(${t.estimatedHours || 1}h)`}
+                        <br><span>${(t.action || 'add') === 'delete' ? (t.reason || dict.aiSuggestCancel) : `${dict.suggestedExecution}${t.suggestedDate ? t.suggestedDate.replace('T', ' ') : dict.scheduleLater}`}</span>
+                    </label>
                 </div>
             `).join('')}
-            <button class="sync-btn" onclick="syncSelectedTasks(this)">将所选节点写入日历</button>
+            <button class="sync-btn" onclick="syncSelectedTasks(this)">${dict.applyPlanBtn}</button>
         `;
-            messagesContainer.appendChild(plannerDiv);
-            messagesContainer.scrollTop = messagesContainer.scrollHeight;
-        } catch (e) {
-            console.error("解析 AI 计划失败", e);
+                messagesContainer.appendChild(plannerDiv);
+                messagesContainer.scrollTop = messagesContainer.scrollHeight;
+            } catch (e) {
+                console.error("解析 AI 计划失败", e);
+            }
         }
-    }
 
-    async function syncSelectedTasks(btn) {
-        const container = btn.parentElement;
-        const checkedItems = container.querySelectorAll('input:checked');
-        if (checkedItems.length === 0) { alert("请至少勾选一个任务！"); return; }
-        btn.innerText = "同步中...";
-        btn.disabled = true;
+        async function syncSelectedTasks(btn) {
+            if (!requireUser()) return;
+            const container = btn.parentElement;
+            const checkedItems = container.querySelectorAll('input:checked');
+            const lang = localStorage.getItem('appLang') || 'zh';
+            if (checkedItems.length === 0) { alert(translations[lang].alertNoTaskChecked); return; }
+            btn.innerText = translations[lang].syncing;
+            btn.disabled = true;
 
-        for (const item of checkedItems) {
-            const taskData = {
-                title: "[AI] " + item.dataset.title,
-                description: `ASif 生成子任务，预计耗时 ${item.dataset.hours} 小时`,
-                dueDate: item.dataset.date || new Date().toISOString()
-            };
+            for (const item of checkedItems) {
+                if (item.dataset.action === 'delete') {
+                    if (item.dataset.taskId) {
+                        await fetch(`/api/tasks/${item.dataset.taskId}`, { method: 'DELETE' });
+                    }
+                    continue;
+                }
+                const taskData = {
+                    title: "[AI] " + item.dataset.title,
+                    description: lang === 'zh' ? `Nexus 生成子任务，预计耗时 ${item.dataset.hours} 小时` : `Subtask generated by Nexus, estimated duration: ${item.dataset.hours} hours`,
+                    dueDate: item.dataset.date || new Date().toISOString()
+                };
 
-            await fetch('/api/tasks', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(taskData)
+                const currentTz = document.getElementById('timezoneSelect').value;
+
+                await fetch(`/api/tasks?userId=${getUserId()}&timezone=${encodeURIComponent(currentTz)}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(taskData)
+                });
+            }
+
+            btn.innerText = translations[lang].syncDone;
+            btn.style.background = "#64748b";
+            calendar.refetchEvents();
+            loadTasks(document.getElementById('timezoneSelect').value);
+            loadLifestyleAnalysis(getActiveAnalysisPeriod(), document.getElementById('timezoneSelect').value);
+        }
+
+        function appendMessage(role, text) {
+            const div = document.createElement('div');
+            div.className = `message ${role}`;
+            div.innerHTML = linkify(text).replace(/\n/g, '<br>');
+            const messagesContainer = document.getElementById('messages');
+            messagesContainer.appendChild(div);
+            messagesContainer.scrollTop = messagesContainer.scrollHeight;
+        }
+
+        function linkify(text) {
+            if (!text) return "";
+            const urlPattern = /(\b(https?|ftp|file):\/\/[-A-Z0-9+&@#\/%?=~_|!:,.;]*[-A-Z0-9+&@#\/%=~_|])/ig;
+            return text.replace(urlPattern, function (url) {
+                return `<a href="${url}" target="_blank" rel="noopener noreferrer" style="color: inherit; text-decoration: underline; font-weight: 500;">${url}</a>`;
             });
         }
-
-        btn.innerText = "✓ 同步完成";
-        btn.style.background = "#64748b";
-        calendar.refetchEvents();
-        loadTasks(document.getElementById('timezoneSelect').value);
-    }
-
-    function appendMessage(role, text) {
-        const div = document.createElement('div');
-        div.className = `message ${role}`;
-        div.innerHTML = linkify(text).replace(/\n/g, '<br>');
-        const messagesContainer = document.getElementById('messages');
-        messagesContainer.appendChild(div);
-        messagesContainer.scrollTop = messagesContainer.scrollHeight;
-    }
-
-    function linkify(text) {
-        if (!text) return "";
-        const urlPattern = /(\b(https?|ftp|file):\/\/[-A-Z0-9+&@#\/%?=~_|!:,.;]*[-A-Z0-9+&@#\/%=~_|])/ig;
-        return text.replace(urlPattern, function(url) {
-            return `<a href="${url}" target="_blank" rel="noopener noreferrer" style="color: inherit; text-decoration: underline; font-weight: 500;">${url}</a>`;
-        });
-    }
-</script>
+    </script>
 
 </body>
+
 </html>
