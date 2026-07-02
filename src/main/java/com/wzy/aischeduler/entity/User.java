@@ -26,6 +26,10 @@ public class User {
     @Column(name = "password_hash")
     private String passwordHash;
 
+    @JsonIgnore
+    @Column(name = "auth_token", unique = true)
+    private String authToken;
+
     private String name;
 
     // 用于调用 Canvas API 的授权 Token (考虑到安全性，未来可以做加密)
@@ -81,6 +85,14 @@ public class User {
 
     public void setPasswordHash(String passwordHash) {
         this.passwordHash = passwordHash;
+    }
+
+    public String getAuthToken() {
+        return authToken;
+    }
+
+    public void setAuthToken(String authToken) {
+        this.authToken = authToken;
     }
 
     public String getName() {

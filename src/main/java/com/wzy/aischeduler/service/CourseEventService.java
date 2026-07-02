@@ -69,7 +69,9 @@ public class CourseEventService {
         if (userId == null) return noData;
         
         ZoneId zoneId = ZoneId.of(timezone);
-        LocalDateTime start = LocalDateTime.now();
+        LocalDateTime start = ZonedDateTime.now(ZoneId.of(timezone))
+                .withZoneSameInstant(ZoneId.of("UTC"))
+                .toLocalDateTime();
         LocalDateTime end = start.plusDays(14);
         List<CourseEvent> events = courseEventRepository.findByUserIdAndStartTimeBetween(userId, start, end);
         
@@ -94,7 +96,7 @@ public class CourseEventService {
         return dto;
     }
 
-    private List<CourseEvent> parseEvents(InputStream inputStream, ZoneId defaultZone) {
+    public List<CourseEvent> parseEvents(InputStream inputStream, ZoneId defaultZone) {
         List<CourseEvent> events = new ArrayList<>();
         try (BufferedReader reader = new BufferedReader(new InputStreamReader(inputStream, StandardCharsets.UTF_8))) {
             Map<String, String> current = null;

@@ -35,7 +35,10 @@ public class LifestyleAnalysisService {
     public LifestyleAnalysisDTO analyze(String period, String userTimezone, Long userId, String lang) {
         String normalizedPeriod = normalizePeriod(period);
         ZoneId zoneId = ZoneId.of(userTimezone);
-        LocalDateTime start = getStartTime(normalizedPeriod, zoneId);
+        LocalDateTime start = getStartTime(normalizedPeriod, zoneId)
+                .atZone(zoneId)
+                .withZoneSameInstant(ZoneId.of("UTC"))
+                .toLocalDateTime();
 
         List<Task> sourceTasks = userId == null ? List.of() : taskRepository.findByUserId(userId);
         List<Task> tasks = sourceTasks.stream()
@@ -49,7 +52,7 @@ public class LifestyleAnalysisService {
         int completedCount = 0;
         for (Task task : tasks) {
             if (task.getDueDate() != null) {
-                java.time.ZoneId serverZone = java.time.ZoneId.systemDefault();
+                java.time.ZoneId serverZone = java.time.ZoneId.of("UTC");
                 java.time.ZonedDateTime userTime = task.getDueDate()
                     .atZone(serverZone)
                     .withZoneSameInstant(zoneId); 

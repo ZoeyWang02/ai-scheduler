@@ -47,6 +47,9 @@ public class AiService {
      * 静态拆解任务方法 (用于测试)
      */
     public String breakDownTask(String taskTitle, String taskDescription) {
+        if (apiKey == null || apiKey.isBlank()) {
+            return "[]";
+        }
         String systemPrompt = "你是一个专业的常春藤名校学术时间管理专家。你的任务是帮学生把大型作业拆解成易于执行的子任务。请以纯 JSON 数组格式返回，不要包含任何额外的 Markdown 标记或闲聊。格式示例：[{\"step\": \"第一步名称\", \"estimatedHours\": 2}, ...]";
         String userPrompt = "请拆解这个作业。标题：[" + taskTitle + "]。详细描述：[" + taskDescription + "]";
 
@@ -84,6 +87,42 @@ public class AiService {
         return chat(userMessage, null, "America/Chicago", "en");
     }
 
+    public String cleanupImportJson(String jsonSample) {
+        if (apiKey == null || apiKey.isBlank()) {
+            return "[]";
+        }
+        String boundedSample = jsonSample == null ? "" : jsonSample.substring(0, Math.min(jsonSample.length(), 12000));
+        String systemPrompt = "You normalize unknown academic JSON imports. Return only a JSON array. "
+                + "Each item must be {\"kind\":\"task\",\"title\":\"...\",\"description\":\"...\",\"dueDate\":\"ISO optional\",\"confidence\":0.0}. "
+                + "Use kind=task only. Do not include markdown.";
+        String userPrompt = "Extract coursework tasks from this JSON. If uncertain, use lower confidence. JSON:\n" + boundedSample;
+
+        Map<String, Object> requestBody = Map.of(
+                "model", model,
+                "temperature", 0.1,
+                "messages", List.of(
+                        Map.of("role", "system", "content", systemPrompt),
+                        Map.of("role", "user", "content", userPrompt)
+                )
+        );
+
+        try {
+            Map<String, Object> response = restClient.post()
+                    .uri(apiUrl)
+                    .header(HttpHeaders.AUTHORIZATION, "Bearer " + apiKey)
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .body(requestBody)
+                    .retrieve()
+                    .body(Map.class);
+            List<Map<String, Object>> choices = (List<Map<String, Object>>) response.get("choices");
+            Map<String, Object> message = (Map<String, Object>) choices.get(0).get("message");
+            return (String) message.get("content");
+        } catch (Exception e) {
+            System.err.println("AI import cleanup failed: " + e.getMessage());
+            return "[]";
+        }
+    }
+
     /**
      * 核心双语聊天方法
      */
@@ -96,7 +135,11 @@ public class AiService {
             : "关键规则：请全程使用中文回答用户并提供建议。";
 
         // 🌟 2. 提取任务上下文 (双语前缀)
-        List<Task> tasks = userId == null ? taskRepository.findAll() : taskRepository.findByUserId(userId);
+        if (apiKey == null || apiKey.isBlank()) {
+            return "AI service is not configured. Set LLM_API_KEY and restart the server.";
+        }
+
+        List<Task> tasks = userId == null ? List.of() : taskRepository.findByUserId(userId);
         String taskContext = tasks.stream()
                 .map(t -> "- id=" + t.getId() + (isEn ? ", title=" : ", 标题=") + t.getTitle() + (isEn ? ", Due=" : ", 截止日期=") + t.getDueDate())
                 .collect(Collectors.joining("\n"));

@@ -1,15 +1,17 @@
 package com.wzy.aischeduler.controller;
 
+import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.List;
 import java.util.Map;
 
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -20,136 +22,155 @@ import com.wzy.aischeduler.dto.TaskResponseDTO;
 import com.wzy.aischeduler.entity.Task;
 import com.wzy.aischeduler.entity.User;
 import com.wzy.aischeduler.repository.TaskRepository;
-import com.wzy.aischeduler.repository.UserRepository;
+import com.wzy.aischeduler.service.AuthService;
 import com.wzy.aischeduler.service.DataImportService;
 import com.wzy.aischeduler.service.TaskService;
 
-@RestController // 告诉 Spring：这是一个对外公开的接口
-@RequestMapping("/api/tasks") // 监听这个网址
+@RestController
+@RequestMapping("/api/tasks")
 public class TaskController {
-    @Autowired
-    private DataImportService dataImportService;
+    private final DataImportService dataImportService;
+    private final TaskService taskService;
+    private final TaskRepository taskRepository;
+    private final AuthService authService;
 
-    @Autowired
-    private TaskService taskService; // 确保你已经注入了 TaskService
-
-    @Autowired
-    private TaskRepository taskRepository;
-
-    @Autowired
-    private UserRepository userRepository;
+    public TaskController(DataImportService dataImportService,
+                          TaskService taskService,
+                          TaskRepository taskRepository,
+                          AuthService authService) {
+        this.dataImportService = dataImportService;
+        this.taskService = taskService;
+        this.taskRepository = taskRepository;
+        this.authService = authService;
+    }
 
     @GetMapping
     public List<TaskResponseDTO> getTasks(
             @RequestParam(defaultValue = "America/Chicago") String timezone,
-            @RequestParam(required = false) Long userId) {
+            @RequestParam(required = false) Long userId,
+            @RequestParam(required = false) String authToken) {
+        if (userId != null) {
+            authService.requireUser(userId, authToken);
+        }
         return taskService.getAllTasksForUser(timezone, userId);
     }
-    //上传 Canvas JSON
+
     @PostMapping("/upload/canvas")
     public ResponseEntity<String> uploadCanvas(@RequestParam("file") MultipartFile file,
-                                               @RequestParam Long userId) {
+                                               @RequestParam Long userId,
+                                               @RequestParam String authToken) {
         try {
+            authService.requireUser(userId, authToken);
             dataImportService.importCanvasData(file.getInputStream(), userId);
-            return ResponseEntity.ok("Canvas 数据上传并同步成功！");
+            return ResponseEntity.ok("Canvas data imported successfully.");
+        } catch (SecurityException e) {
+            return ResponseEntity.status(401).body(e.getMessage());
         } catch (Exception e) {
-            return ResponseEntity.status(500).body("上传失败: " + e.getMessage());
+            return ResponseEntity.status(500).body("Upload failed: " + e.getMessage());
         }
     }
 
-    //上传 Coursera JSON
     @PostMapping("/upload/coursera")
     public ResponseEntity<String> uploadCoursera(@RequestParam("file") MultipartFile file,
-                                                 @RequestParam Long userId) {
+                                                 @RequestParam Long userId,
+                                                 @RequestParam String authToken) {
         try {
+            authService.requireUser(userId, authToken);
             dataImportService.importCourseraData(file.getInputStream(), userId);
-            return ResponseEntity.ok("Coursera 数据上传成功！");
+            return ResponseEntity.ok("Coursera data imported successfully.");
+        } catch (SecurityException e) {
+            return ResponseEntity.status(401).body(e.getMessage());
         } catch (Exception e) {
-            return ResponseEntity.status(500).body("上传失败: " + e.getMessage());
+            return ResponseEntity.status(500).body("Upload failed: " + e.getMessage());
         }
     }
 
     @PostMapping
-    public ResponseEntity<Task> createTask(@RequestBody Task task,
-                                           @RequestParam Long userId,
-                                           @RequestParam(defaultValue = "America/Chicago") String timezone) { // 🌟 接收时区参数
-        User user = userRepository.findById(userId)
-                .orElseThrow(() -> new IllegalArgumentException("当前登录用户不存在，请重新登录。"));
-        task.setUser(user);
-        
-        // 🌟 核心修复：将 AI 生成的用户本地时间，正确转换为系统数据库的基准时间（如服务器本地或UTC）后再保存
-        if (task.getDueDate() != null) {
-            java.time.ZoneId userZone = java.time.ZoneId.of(timezone);
-            java.time.ZoneId serverZone = java.time.ZoneId.systemDefault();
-            
-            // 视作用户时区的时间，然后转为服务器系统时区的时间
-            java.time.LocalDateTime normalizedDeadline = task.getDueDate()
-                    .atZone(userZone)
-                    .withZoneSameInstant(serverZone)
-                    .toLocalDateTime();
-                    
-            task.setDueDate(normalizedDeadline);
+    public ResponseEntity<?> createTask(@RequestBody Task task,
+                                        @RequestParam Long userId,
+                                        @RequestParam String authToken,
+                                        @RequestParam(defaultValue = "America/Chicago") String timezone) {
+        try {
+            User user = authService.requireUser(userId, authToken);
+            task.setUser(user);
+            task.setDueDate(toUtc(task.getDueDate(), timezone));
+            return ResponseEntity.ok(taskRepository.save(task));
+        } catch (SecurityException e) {
+            return ResponseEntity.status(401).body(e.getMessage());
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body("Create failed: " + e.getMessage());
         }
-
-        Task savedTask = taskRepository.save(task);
-        return ResponseEntity.ok(savedTask);
     }
 
-    /**
-     * 接收前端更新任务颜色的请求
-     * 对应的 HTTP 请求：PATCH /api/tasks/{id}/color
-     */
     @PatchMapping("/{id}/color")
-    public ResponseEntity<?> updateTaskColor(@PathVariable("id") Long id, @RequestBody Map<String, String> requestBody) {
-        // 从请求的 JSON 体 {"color": "#FF5733"} 中提取 color 的值
+    public ResponseEntity<?> updateTaskColor(@PathVariable Long id,
+                                             @RequestParam String authToken,
+                                             @RequestBody Map<String, String> requestBody) {
         String newColor = requestBody.get("color");
-        
         if (newColor == null || newColor.trim().isEmpty()) {
-            return ResponseEntity.badRequest().body("颜色值不能为空");
+            return ResponseEntity.badRequest().body("Color cannot be empty.");
         }
-
         try {
-            // 调用 Service 层去更新数据库
-            taskService.updateTaskColor(id, newColor);
-            return ResponseEntity.ok().body("颜色更新成功");
+            Task task = requireOwnedTask(id, authToken);
+            taskService.updateTaskColor(task.getId(), newColor);
+            return ResponseEntity.ok("Color updated.");
+        } catch (SecurityException e) {
+            return ResponseEntity.status(403).body(e.getMessage());
         } catch (Exception e) {
-            return ResponseEntity.badRequest().body("更新失败: " + e.getMessage());
+            return ResponseEntity.badRequest().body("Update failed: " + e.getMessage());
         }
     }
 
-    // 删除任务的接口
     @DeleteMapping("/{id}")
-    public ResponseEntity<String> deleteTask(@PathVariable Long id) {
+    public ResponseEntity<String> deleteTask(@PathVariable Long id, @RequestParam String authToken) {
         try {
-            taskRepository.deleteById(id);
-            return ResponseEntity.ok("任务已成功删除");
+            Task task = requireOwnedTask(id, authToken);
+            taskRepository.delete(task);
+            return ResponseEntity.ok("Task deleted.");
+        } catch (SecurityException e) {
+            return ResponseEntity.status(403).body(e.getMessage());
         } catch (Exception e) {
-            return ResponseEntity.status(500).body("删除失败: " + e.getMessage());
+            return ResponseEntity.status(500).body("Delete failed: " + e.getMessage());
         }
     }
 
-    // 🌟 处理前端手动编辑任务的请求
-    @org.springframework.web.bind.annotation.PutMapping("/{id}")
-    public ResponseEntity<?> updateTask(@PathVariable Long id, @RequestBody com.wzy.aischeduler.entity.Task updatedTask, @RequestParam String timezone) {
+    @PutMapping("/{id}")
+    public ResponseEntity<?> updateTask(@PathVariable Long id,
+                                        @RequestBody Task updatedTask,
+                                        @RequestParam String timezone,
+                                        @RequestParam String authToken) {
         try {
-            com.wzy.aischeduler.entity.Task existingTask = taskRepository.findById(id)
-                    .orElseThrow(() -> new IllegalArgumentException("Task not found"));
-            
+            Task existingTask = requireOwnedTask(id, authToken);
             existingTask.setTitle(updatedTask.getTitle());
             existingTask.setDescription(updatedTask.getDescription());
-            
             if (updatedTask.getDueDate() != null) {
-                java.time.ZoneId userZone = java.time.ZoneId.of(timezone);
-                java.time.ZoneId serverZone = java.time.ZoneId.systemDefault();
-                java.time.ZonedDateTime localZoned = updatedTask.getDueDate().atZone(userZone);
-                existingTask.setDueDate(localZoned.withZoneSameInstant(serverZone).toLocalDateTime());
+                existingTask.setDueDate(toUtc(updatedTask.getDueDate(), timezone));
             }
-            
             taskRepository.save(existingTask);
-            return ResponseEntity.ok("更新成功");
+            return ResponseEntity.ok("Task updated.");
+        } catch (SecurityException e) {
+            return ResponseEntity.status(403).body(e.getMessage());
         } catch (Exception e) {
-            return ResponseEntity.badRequest().body("更新失败: " + e.getMessage());
+            return ResponseEntity.badRequest().body("Update failed: " + e.getMessage());
         }
     }
 
+    private Task requireOwnedTask(Long taskId, String authToken) {
+        User user = authService.requireToken(authToken);
+        Task task = taskRepository.findById(taskId)
+                .orElseThrow(() -> new IllegalArgumentException("Task not found"));
+        if (task.getUser() == null || !task.getUser().getId().equals(user.getId())) {
+            throw new SecurityException("Forbidden");
+        }
+        return task;
+    }
+
+    private LocalDateTime toUtc(LocalDateTime localDateTime, String timezone) {
+        if (localDateTime == null) {
+            return null;
+        }
+        return localDateTime.atZone(ZoneId.of(timezone))
+                .withZoneSameInstant(ZoneId.of("UTC"))
+                .toLocalDateTime();
+    }
 }

@@ -69,7 +69,7 @@ public class DataImportService {
     
                         // 2. 将其转换到我们数据库统一规定的“服务器系统时区”
                         java.time.LocalDateTime normalizedServerTime = canvasTime
-                           .withZoneSameInstant(java.time.ZoneId.systemDefault())
+                           .withZoneSameInstant(java.time.ZoneId.of("UTC"))
                            .toLocalDateTime();
             
                          // 3. 存入 Task
