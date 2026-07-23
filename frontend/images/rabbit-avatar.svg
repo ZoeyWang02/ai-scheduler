@@ -1,0 +1,43 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 11" shape-rendering="crispEdges">
+    <!-- ears -->
+    <rect x="4" y="0" width="2" height="1" fill="#d9b98a" />
+    <rect x="10" y="0" width="2" height="1" fill="#d9b98a" />
+    <rect x="4" y="1" width="2" height="1" fill="#d9b98a" />
+    <rect x="10" y="1" width="2" height="1" fill="#d9b98a" />
+    <rect x="4" y="2" width="2" height="1" fill="#d9b98a" />
+    <rect x="10" y="2" width="2" height="1" fill="#d9b98a" />
+    <!-- head -->
+    <rect x="4" y="3" width="1" height="1" fill="#1a1a1a" />
+    <rect x="5" y="3" width="6" height="1" fill="#d9b98a" />
+    <rect x="11" y="3" width="1" height="1" fill="#1a1a1a" />
+    <!-- eyes -->
+    <rect x="4" y="4" width="1" height="1" fill="#1a1a1a" />
+    <rect x="5" y="4" width="1" height="1" fill="#d9b98a" />
+    <rect x="6" y="4" width="1" height="1" fill="#1a1a1a" />
+    <rect x="7" y="4" width="2" height="1" fill="#d9b98a" />
+    <rect x="9" y="4" width="1" height="1" fill="#1a1a1a" />
+    <rect x="10" y="4" width="1" height="1" fill="#d9b98a" />
+    <rect x="11" y="4" width="1" height="1" fill="#1a1a1a" />
+    <!-- nose -->
+    <rect x="4" y="5" width="1" height="1" fill="#1a1a1a" />
+    <rect x="5" y="5" width="2" height="1" fill="#d9b98a" />
+    <rect x="7" y="5" width="2" height="1" fill="#f4a6b0" />
+    <rect x="9" y="5" width="2" height="1" fill="#d9b98a" />
+    <rect x="11" y="5" width="1" height="1" fill="#1a1a1a" />
+    <!-- body -->
+    <rect x="4" y="6" width="1" height="1" fill="#1a1a1a" />
+    <rect x="5" y="6" width="6" height="1" fill="#d9b98a" />
+    <rect x="11" y="6" width="1" height="1" fill="#1a1a1a" />
+    <rect x="4" y="7" width="1" height="1" fill="#1a1a1a" />
+    <rect x="5" y="7" width="6" height="1" fill="#d9b98a" />
+    <rect x="11" y="7" width="1" height="1" fill="#1a1a1a" />
+    <!-- taper -->
+    <rect x="5" y="8" width="1" height="1" fill="#1a1a1a" />
+    <rect x="6" y="8" width="4" height="1" fill="#d9b98a" />
+    <rect x="10" y="8" width="1" height="1" fill="#1a1a1a" />
+    <!-- paws -->
+    <rect x="6" y="9" width="1" height="1" fill="#1a1a1a" />
+    <rect x="7" y="9" width="2" height="1" fill="#d9b98a" />
+    <rect x="9" y="9" width="1" height="1" fill="#1a1a1a" />
+    <rect x="7" y="10" width="2" height="1" fill="#1a1a1a" />
+</svg>

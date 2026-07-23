@@ -1,0 +1,328 @@
+import { state } from './state.js';
+import { getActiveAnalysisPeriod, loadLifestyleAnalysis } from './analytics.js';
+import { loadTasks } from './scheduler.js';
+import { renderChatStatus } from './chat.js';
+
+export const translations = {
+            zh: {
+                timezoneLabel: "🌍 时区同步",
+                dataSourceLabel: "📥 数据源接入",
+                openImportBtn: "导入课业",
+                nightModeToggle: "切换深夜模式",
+                themeStardewNight: "🌙 星露谷 · 深夜",
+                importTitle: "导入课业",
+                previewImportBtn: "预览导入",
+                confirmImportBtn: "确认所选",
+                taskListLabel: "待办速览",
+                btnAccount: "Account",
+                btnSignIn: "登录",
+                analysisTitle: "作息追踪与分析",
+                btnDay: "日",
+                btnWeek: "周",
+                btnMonth: "月",
+                metricRhythm: "节奏画像",
+                metricFocus: "专注模式",
+                metricPeak: "巅峰时段",
+                metricCompletion: "任务完成",
+                analyzing: "分析中...",
+                loadingRhythm: "正在读取任务节奏...",
+                aiWelcome: "你好，我是 Nexus。你可以告诉我任务安排，或输入 /plan 让我生成日程。",
+                statusOnline: "在线",
+                statusOffline: "离线",
+                settingsTitle: "设置",
+                settingsTheme: "界面主题",
+                settingsBuddy: "Study Buddy 头像",
+                settingsBuddyStatus: "Study Buddy 状态",
+                buddyStatusGuestHint: "登录后即可培养你的 Study Buddy。",
+                buddyMaxStage: "已完全成长",
+                buddyStageHatchling: "雏鸟期",
+                buddyStageGrowing: "成长期",
+                buddyStageMature: "成熟期",
+                buddyMoodCalm: "平静",
+                buddyMoodHappy: "开心",
+                buddyMoodExcited: "兴奋",
+                buddyLevelUpToast: "⭐ 升级到 Lv.{level}！",
+                buddyStageUpToast: "🎉 Study Buddy 进化了！",
+                buddyTasksCompletedLabel: "已完成任务",
+                buddyXpToNextLevelLabel: "距离下一等级",
+                buddyWidgetChat: "💬 聊天",
+                buddyWidgetAnalysis: "📊 学习状态分析",
+                buddyWidgetStatus: "🎴 Buddy 状态",
+                greetingMorning: "早上好",
+                greetingAfternoon: "下午好",
+                greetingEvening: "晚上好",
+                buddyLinesCalm: ["准备好学习了吗？", "我在这里陪着你。"],
+                buddyLinesHappy: ["今天状态不错哦！", "我们继续保持吧！"],
+                buddyLinesExcited: ["感觉超棒的！一起冲刺！", "势头正好，别停下来！"],
+                remindersLabel: "🔔 桌面提醒",
+                remindersEnableBtn: "开启截止提醒",
+                remindersResetPositionBtn: "重置位置",
+                remindersStatusGranted: "已开启",
+                remindersStatusDenied: "浏览器已拒绝通知权限",
+                remindersStatusUnsupported: "此浏览器不支持桌面通知",
+                remindersStatusOff: "未开启",
+                remindersStatusEnabledNoOS: "已开启（仅应用内提醒）",
+                remindersDisableBtn: "关闭提醒",
+                buddyPositionLabel: "📍 Study Buddy 位置",
+                reminderHeadsUpMessage: "「{title}」还有 2 小时截止",
+                reminderUrgentMessage: "「{title}」还有 30 分钟截止！",
+                settingsSave: "保存",
+                chatPlaceholder: "输入任务名称进行拆解...",
+                sendBtn: "发送",
+                authHint: "使用用户名或邮箱，加密码登录。",
+                btnSignInTab: "Sign in",
+                btnSignUpTab: "Sign up",
+                authUsernamePlaceholder: "Username",
+                authEmailPlaceholder: "Email",
+                authIdPlaceholder: "Username or email",
+                authPasswordPlaceholder: "Password",
+                forgotPasswordLink: "Forgot password?",
+                resetCodePlaceholder: "Verification code",
+                resetPasswordPlaceholder: "New password",
+                sendCodeBtn: "Send",
+                resetPasswordBtn: "Reset password",
+                orContinueWith: "or continue with",
+                modalTitleText: "任务详情",
+                setColorLabel: "标签颜色:",
+                saveColorBtn: "保存",
+                deleteTaskBtn: "移除任务",
+                tzPlaceholder: "例如 America/Chicago",
+                alertRequireUser: "请先 Sign in 或 Sign up，再同步或创建任务。",
+                alertSignUp: "注册需要用户名、邮箱和至少 6 位密码。",
+                alertSignIn: "登录需要用户名或邮箱，以及密码。",
+                alertResetEmail: "请输入邮箱获取验证码。",
+                alertResetCode: "请输入邮箱、验证码和至少 6 位新密码。",
+                alertExternalAuth: "该登录方式需要先配置 OAuth/SSO provider。",
+                resetCodeSent: "验证码已发送。如未配置邮件服务，请查看后端日志。",
+                resetDone: "密码已重置，请重新登录。",
+                alertAuthFail: "账号操作失败: ",
+                checkInput: "请检查输入。",
+                alertColorFail: "颜色保存失败，请检查后端接口。",
+                colorSavedToast: "颜色已保存",
+                translateTooltip: "翻译",
+                alertEnterTaskInfo: "请输入任务名称和开始时间。",
+                taskSavedToast: "任务已保存",
+                alertSaveFailed: "保存失败，请检查任务信息。",
+                alertNetworkError: "网络错误",
+                confirmDeleteTask: "确定要移除这个任务吗？",
+                confirmDeleteCourse: "确定要移除这节课吗？",
+                confirmEditTask: "确定要保存这次修改吗？日期/标题一旦覆盖将无法撤销。",
+                alertDeleteFail: "删除失败",
+                defaultReco: "导入更多任务后，我会给出更稳定的规划建议。",
+                serviceUnavailable: "暂不可用",
+                tryLater: "稍后重试",
+                analyticsNoResponse: "作息分析接口暂时没有响应。",
+                noTasks: "暂无待办任务",
+                alertSelectFile: "请选择文件",
+                importNoItems: "没有识别到可导入项目。",
+                importPreviewFail: "导入预览失败: ",
+                importConfirmFail: "导入确认失败: ",
+                importDone: "导入完成",
+                syncing: "同步中...",
+                syncFail: "同步失败: ",
+                uploadFail: "上传失败",
+                alertSelectIcs: "请选择 .ics 文件",
+                icsUploadFail: "课程表上传失败",
+                aiConnectFail: "连接助手失败",
+                sysNotifyImport: "(系统通知) 已导入 ",
+                sysNotifyRequest: " 数据，请求 AI 分析...",
+                aiAnalysisFail: "分析作业数据失败，请重试。",
+                plannerHeader: "AI 智能排期建议",
+                deleteLabel: "删除",
+                addLabel: "新增",
+                unnamedPlan: "未命名计划",
+                aiSuggestCancel: "AI 建议取消该计划",
+                scheduleLater: "稍后安排",
+                suggestedExecution: "建议执行: ",
+                applyPlanBtn: "应用所选计划",
+                alertNoTaskChecked: "请至少勾选一个任务。",
+                syncDone: "同步完成"
+            },
+            en: {
+                timezoneLabel: "Timezone Sync",
+                dataSourceLabel: "Data Sources",
+                openImportBtn: "Import coursework",
+                nightModeToggle: "Toggle night mode",
+                themeStardewNight: "🌙 Stardew · Night",
+                importTitle: "Import coursework",
+                previewImportBtn: "Preview import",
+                confirmImportBtn: "Confirm selected",
+                taskListLabel: "Task Overview",
+                btnAccount: "Account",
+                btnSignIn: "Sign in",
+                analysisTitle: "Routine Tracking & Analysis",
+                btnDay: "Day",
+                btnWeek: "Week",
+                btnMonth: "Month",
+                metricRhythm: "Rhythm Profile",
+                metricFocus: "Focus Style",
+                metricPeak: "Peak Window",
+                metricCompletion: "Tasks Completed",
+                analyzing: "Analyzing...",
+                loadingRhythm: "Reading your task rhythm...",
+                aiWelcome: "Hello, I am Nexus, your academic assistant. Tell me your tasks, or type /plan to let me schedule for you.",
+                statusOnline: "Online",
+                statusOffline: "Offline",
+                settingsTitle: "Settings",
+                settingsTheme: "Theme",
+                settingsBuddy: "Study Buddy Avatar",
+                settingsBuddyStatus: "Study Buddy Status",
+                buddyStatusGuestHint: "Sign in to grow your Study Buddy.",
+                buddyMaxStage: "Fully grown",
+                buddyStageHatchling: "Hatchling",
+                buddyStageGrowing: "Growing",
+                buddyStageMature: "Mature",
+                buddyMoodCalm: "Calm",
+                buddyMoodHappy: "Happy",
+                buddyMoodExcited: "Excited",
+                buddyLevelUpToast: "⭐ Leveled up to Lv.{level}!",
+                buddyStageUpToast: "🎉 Your Study Buddy evolved!",
+                buddyTasksCompletedLabel: "Tasks completed",
+                buddyXpToNextLevelLabel: "XP to next level",
+                buddyWidgetChat: "💬 Chat",
+                buddyWidgetAnalysis: "📊 Study analysis",
+                buddyWidgetStatus: "🎴 Buddy Status",
+                greetingMorning: "Good morning!",
+                greetingAfternoon: "Good afternoon!",
+                greetingEvening: "Good evening!",
+                buddyLinesCalm: ["Ready to study?", "I'm here with you."],
+                buddyLinesHappy: ["You're doing great today!", "Let's keep it up!"],
+                buddyLinesExcited: ["Feeling amazing! Let's go!", "Great momentum, don't stop now!"],
+                remindersLabel: "🔔 Desktop reminders",
+                remindersEnableBtn: "Enable deadline reminders",
+                remindersResetPositionBtn: "Reset position",
+                remindersStatusGranted: "Enabled",
+                remindersStatusDenied: "Browser denied notification permission",
+                remindersStatusUnsupported: "This browser doesn't support desktop notifications",
+                remindersStatusOff: "Not enabled",
+                remindersStatusEnabledNoOS: "Enabled (in-app only)",
+                remindersDisableBtn: "Disable reminders",
+                reminderHeadsUpMessage: "\"{title}\" is due in 2 hours",
+                reminderUrgentMessage: "\"{title}\" is due in 30 minutes!",
+                settingsSave: "Save",
+                chatPlaceholder: "Enter a task to decompose...",
+                sendBtn: "Send",
+                authHint: "Sign in using username or email with password.",
+                btnSignInTab: "Sign in",
+                btnSignUpTab: "Sign up",
+                authUsernamePlaceholder: "Username",
+                authEmailPlaceholder: "Email",
+                authIdPlaceholder: "Username or email",
+                authPasswordPlaceholder: "Password",
+                forgotPasswordLink: "Forgot password?",
+                resetCodePlaceholder: "Verification code",
+                resetPasswordPlaceholder: "New password",
+                sendCodeBtn: "Send",
+                resetPasswordBtn: "Reset password",
+                orContinueWith: "or continue with",
+                modalTitleText: "Task Details",
+                setColorLabel: "Label Color:",
+                saveColorBtn: "Save",
+                deleteTaskBtn: "Remove Task",
+                tzPlaceholder: "e.g., America/Chicago",
+                alertRequireUser: "Please sign in before syncing or creating tasks.",
+                alertSignUp: "Registration requires username, email, and a password of at least 6 characters.",
+                alertSignIn: "Sign in requires username or email, and password.",
+                alertResetEmail: "Enter your email to receive a verification code.",
+                alertResetCode: "Enter your email, verification code, and a new password of at least 6 characters.",
+                alertExternalAuth: "This sign-in method needs an OAuth/SSO provider configured first.",
+                resetCodeSent: "Verification code sent. If mail is not configured, check the backend log.",
+                resetDone: "Password reset. Please sign in again.",
+                alertAuthFail: "Account operation failed: ",
+                checkInput: "Please check your input.",
+                alertColorFail: "Failed to save color. Please check the backend endpoint.",
+                colorSavedToast: "Color saved",
+                translateTooltip: "Translate",
+                alertEnterTaskInfo: "Please enter a task name and start time.",
+                taskSavedToast: "Task saved",
+                alertSaveFailed: "Save failed. Please check the task data.",
+                alertNetworkError: "Network error",
+                confirmDeleteTask: "Are you sure you want to remove this task?",
+                confirmDeleteCourse: "Are you sure you want to remove this course session?",
+                confirmEditTask: "Save these changes? Overwriting the date/title cannot be undone.",
+                alertDeleteFail: "Delete failed",
+                defaultReco: "Import more tasks to receive more stable schedule recommendations.",
+                serviceUnavailable: "Unavailable",
+                tryLater: "Try later",
+                analyticsNoResponse: "The routine analysis service is temporarily not responding.",
+                noTasks: "No pending tasks",
+                alertSelectFile: "Please select a file",
+                importNoItems: "No importable items detected.",
+                importPreviewFail: "Import preview failed: ",
+                importConfirmFail: "Import confirmation failed: ",
+                importDone: "Import complete",
+                syncing: "Syncing...",
+                syncFail: "Sync failed: ",
+                uploadFail: "Upload failed",
+                alertSelectIcs: "Please select an .ics file",
+                icsUploadFail: "Failed to upload course schedule",
+                aiConnectFail: "Failed to connect to assistant",
+                sysNotifyImport: "(System Notice) Imported ",
+                sysNotifyRequest: " data, requesting AI analysis...",
+                aiAnalysisFail: "Failed to analyze assignment data, please try again.",
+                plannerHeader: "AI Scheduling Recommendations",
+                deleteLabel: "Delete",
+                addLabel: "Add",
+                unnamedPlan: "Unnamed Plan",
+                aiSuggestCancel: "AI suggested cancellation",
+                scheduleLater: "Schedule later",
+                suggestedExecution: "Suggested execution: ",
+                applyPlanBtn: "Apply Selected Plans",
+                alertNoTaskChecked: "Please check at least one task.",
+                syncDone: "Sync complete"
+            }
+        };
+
+export function applyLanguage() {
+            const lang = localStorage.getItem('appLang') || 'zh';
+            const dict = translations[lang];
+            if (!dict) return;
+
+            // 闈欐€佹爣绛惧強 placeholder 鎵归噺鏇挎崲
+            document.querySelectorAll('[data-i18n]').forEach(el => {
+                const key = el.getAttribute('data-i18n');
+                if (dict[key]) el.innerHTML = dict[key];
+            });
+            document.querySelectorAll('[data-i18n-placeholder]').forEach(el => {
+                const key = el.getAttribute('data-i18n-placeholder');
+                if (dict[key]) el.placeholder = dict[key];
+            });
+            document.querySelectorAll('[data-i18n-title]').forEach(el => {
+                const key = el.getAttribute('data-i18n-title');
+                if (dict[key]) { el.title = dict[key]; el.setAttribute('aria-label', dict[key]); }
+            });
+
+            const langBtn = document.getElementById('langToggleBtn');
+            if (langBtn) {
+                langBtn.innerText = lang === 'zh' ? "English" : "中文";
+            }
+
+            renderChatStatus();
+
+            if (document.getElementById('authModal').style.display === 'block') {
+                if (state.currentUser) {
+                    document.getElementById('authModalTitle').innerText = lang === 'zh' ? '账户中心' : 'Account Center';
+                } else {
+                    document.getElementById('authModalTitle').innerText = state.authMode === 'signup' ? dict.btnSignUpTab : dict.btnSignInTab;
+                    document.getElementById('authSubmitBtn').innerText = state.authMode === 'signup' ? dict.btnSignUpTab : dict.btnSignInTab;
+                }
+            }
+
+            // 日历核心时区/语言联动
+            if (window.calendar && typeof state.calendar.setOption === 'function') {
+                state.calendar.setOption('locale', dict.calendarLocale || (lang === 'zh' ? 'zh-cn' : 'en'));
+            }
+        }
+
+export function toggleLanguage() {
+            let lang = localStorage.getItem('appLang') || 'zh';
+            lang = lang === 'zh' ? 'en' : 'zh';
+            localStorage.setItem('appLang', lang);
+            applyLanguage();
+
+            const currentTz = document.getElementById('timezoneSelect').value;
+            loadLifestyleAnalysis(getActiveAnalysisPeriod(), currentTz, true);
+
+            loadTasks(currentTz);
+            if (state.calendar) state.calendar.refetchEvents();
+        }

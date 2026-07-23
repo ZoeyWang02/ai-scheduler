@@ -30,6 +30,29 @@ public class AiController {
         return aiService.breakDownTask(title, desc);
     }
 
+    @GetMapping("/status")
+    public Map<String, Boolean> status() {
+        return Map.of("configured", aiService.isConfigured());
+    }
+
+    @PostMapping("/translate")
+    public ResponseEntity<?> translate(@RequestBody Map<String, String> requestData) {
+        String text = requestData.get("text");
+        String targetLang = requestData.getOrDefault("targetLang", "en");
+        String authToken = requestData.get("authToken");
+        if (text == null || text.isBlank()) {
+            return ResponseEntity.badRequest().body("Request must include a non-empty 'text' field.");
+        }
+        try {
+            authService.requireToken(authToken);
+            return ResponseEntity.ok(Map.of("translated", aiService.translateText(text, targetLang)));
+        } catch (SecurityException e) {
+            return ResponseEntity.status(401).body("Authentication failed: " + e.getMessage());
+        } catch (Exception e) {
+            return ResponseEntity.internalServerError().body("Translation failed: " + e.getMessage());
+        }
+    }
+
     @PostMapping("/chat")
     public ResponseEntity<String> chatWithAi(@RequestBody Map<String, String> requestData) {
         String userMessage = requestData.get("message");

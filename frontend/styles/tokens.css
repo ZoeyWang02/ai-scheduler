@@ -1,0 +1,95 @@
+/* ==========================================================================
+   Design tokens — Primitive layer
+   Raw values only. Theme-agnostic. Nothing here is consumed directly by
+   components — see themes.css for the semantic layer that maps these to
+   meaning (--color-primary etc.), and components.css/layout.css for the
+   handful of component-scoped tokens built on top of that.
+   ========================================================================== */
+
+:root {
+    /* Color primitives — light/dark shared hue family (teal primary, orange highlight) */
+    --teal-700: #0b5c56;
+    --teal-600: #0f766e;
+    --teal-400: #2dd4c8;
+    --orange-500: #ff8c42;
+    --orange-400: #ffa05c;
+    --ink-900: #211d1a;
+    --ink-700: #4a4038;
+    --cream-100: #f7f3ec;
+    --cream-50: #fffdf9;
+    --umber-900: #171412;
+    --umber-800: #211c18;
+    --sand-200: #f5efe7;
+    --sand-500: #a79885;
+    --clay-200: #e9decf;
+    --charcoal-700: #3a322a;
+    --moss-600: #1c9c7c;
+    --moss-400: #35c99b;
+    --sage-500: #8fbf6b;
+    --amber-500: #f4b740;
+    --red-500: #ef4444;
+
+    /* Color primitives — Stardew's own hue family */
+    --fern-600: #5b8c3a;
+    --fern-700: #4a7530;
+    --soil-900: #4d3319;
+    --soil-700: #7a5230;
+    --wheat-100: #f6ecd2;
+    --wheat-50: #fffaf0;
+    --wheat-600: #8a6d4b;
+    --wheat-border: #d8b878;
+    --rust-600: #c1440e;
+    --gold-500: #e8b84b;
+    --wheat-bevel: #c48a4a;
+
+    /* Spacing scale */
+    --space-1: 4px;
+    --space-2: 8px;
+    --space-3: 16px;
+    --space-4: 24px;
+    --space-5: 32px;
+    --space-6: 48px;
+
+    /* Motion — snapped to the durations already in use (0.2s/0.3s/0.6s cluster),
+       not a freshly invented scale, for the same "lock in, don't re-explore" reason
+       as the typography scale above. Per-element stagger delays (task-list/panel
+       entrance offsets) are deliberately left as literals — they're a sequence,
+       not a speed choice, so a token would just be indirection. */
+    --motion-fast: 0.2s;
+    --motion-normal: 0.3s;
+    --motion-slow: 0.6s;
+    --ease-standard: cubic-bezier(0.16, 1, 0.3, 1);
+    --ease-emphasized: cubic-bezier(0.34, 1.56, 0.64, 1);
+
+    /* Z-index scale — only 4 real consumers today (sticky top bar, the resize-drag
+       gutter handles, and the two modal layers, which already shared 9999) */
+    --z-dropdown: 10;
+    --z-widget: 500;
+    --z-sticky: 1000;
+    --z-modal: 9999;
+    --z-toast: 10000;
+    --z-tooltip: 10010;
+
+    /* Cursor */
+    --cursor-clickable: pointer;
+    --cursor-resize-col: col-resize;
+    --cursor-resize-row: row-resize;
+
+    /* Typography scale — named steps snapped to the sizes already in use
+       (11/12/13/15/17/24/32px), not a freshly invented ratio: the brief was to
+       lock in the current visual direction, not re-open type-size exploration. */
+    --text-caption: 11px;
+    --text-label: 12px;
+    --text-body: 13px;
+    --text-title: 15px;
+    --text-heading: 17px;
+    --text-display: 24px;
+    --text-display-xl: 32px;
+
+    /* Breakpoints — documented convention only. Vanilla CSS `@media` conditions
+       cannot consume a var(), so these can't actually drive a media query
+       without a preprocessor/build step (this project deliberately has none).
+       Recorded here for humans/future tooling; the one real breakpoint in the
+       app (max-width: 1180px, see layout.css) stays a literal in its @media rule. */
+    /* --bp-sm: 640px; --bp-md: 768px; --bp-lg: 1024px; */
+}

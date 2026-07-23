@@ -33,6 +33,9 @@ public class Task {
 
     private boolean completed = false;
 
+    @Column(name = "completed_at")
+    private LocalDateTime completedAt;
+
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(columnDefinition = "jsonb")
     private Map<String, Object> aiMetadata;
@@ -64,6 +67,9 @@ public class Task {
 
     public boolean isCompleted() { return completed; }
     public void setCompleted(boolean completed) { this.completed = completed; }
+
+    public LocalDateTime getCompletedAt() { return completedAt; }
+    public void setCompletedAt(LocalDateTime completedAt) { this.completedAt = completedAt; }
 
     public Map<String, Object> getAiMetadata() { return aiMetadata; }
     public void setAiMetadata(Map<String, Object> aiMetadata) { this.aiMetadata = aiMetadata; }

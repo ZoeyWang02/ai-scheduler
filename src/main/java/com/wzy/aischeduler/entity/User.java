@@ -2,6 +2,9 @@ package com.wzy.aischeduler.entity;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import java.time.LocalDateTime;
+import java.util.Map;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 // @Entity 告诉 Spring：这个类对应数据库里的一张表
 @Entity
@@ -51,6 +54,11 @@ public class User {
 
     // 或者用更通用的偏移量
     private String utcOffset = "UTC-5";
+
+    // 用户偏好设置（主题、Study Buddy 头像等），跨设备持久化
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(columnDefinition = "jsonb")
+    private Map<String, Object> preferences;
 
     public User() {
     }
@@ -133,5 +141,13 @@ public class User {
 
     public void setUtcOffset(String utcOffset) {
         this.utcOffset = utcOffset;
+    }
+
+    public Map<String, Object> getPreferences() {
+        return preferences;
+    }
+
+    public void setPreferences(Map<String, Object> preferences) {
+        this.preferences = preferences;
     }
 }

@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 18" shape-rendering="crispEdges">
+    <!-- hair -->
+    <rect x="6" y="0" width="4" height="1" fill="#6b4423" />
+    <rect x="5" y="1" width="6" height="1" fill="#6b4423" />
+    <rect x="5" y="2" width="1" height="1" fill="#6b4423" />
+    <rect x="10" y="2" width="1" height="1" fill="#6b4423" />
+    <rect x="5" y="3" width="1" height="1" fill="#6b4423" />
+    <rect x="10" y="3" width="1" height="1" fill="#6b4423" />
+    <rect x="5" y="4" width="1" height="1" fill="#6b4423" />
+    <rect x="10" y="4" width="1" height="1" fill="#6b4423" />
+    <!-- face -->
+    <rect x="6" y="2" width="4" height="1" fill="#f0c8a0" />
+    <rect x="6" y="3" width="1" height="1" fill="#1a1a1a" />
+    <rect x="7" y="3" width="2" height="1" fill="#f0c8a0" />
+    <rect x="9" y="3" width="1" height="1" fill="#1a1a1a" />
+    <rect x="6" y="4" width="4" height="1" fill="#f0c8a0" />
+    <rect x="7" y="5" width="2" height="1" fill="#f0c8a0" />
+    <!-- arms -->
+    <rect x="4" y="6" width="1" height="4" fill="#f0c8a0" />
+    <rect x="11" y="6" width="1" height="4" fill="#f0c8a0" />
+    <!-- shirt -->
+    <rect x="5" y="6" width="6" height="5" fill="#5b8c3a" />
+    <!-- belt -->
+    <rect x="5" y="11" width="6" height="1" fill="#4a3222" />
+    <!-- legs -->
+    <rect x="5" y="12" width="3" height="4" fill="#4a6fa5" />
+    <rect x="8" y="12" width="3" height="4" fill="#4a6fa5" />
+    <!-- shoes -->
+    <rect x="5" y="16" width="2" height="2" fill="#4a3222" />
+    <rect x="9" y="16" width="2" height="2" fill="#4a3222" />
+</svg>

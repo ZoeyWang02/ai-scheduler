@@ -18,11 +18,13 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 
+import com.wzy.aischeduler.dto.BuddyStateDTO;
 import com.wzy.aischeduler.dto.TaskResponseDTO;
 import com.wzy.aischeduler.entity.Task;
 import com.wzy.aischeduler.entity.User;
 import com.wzy.aischeduler.repository.TaskRepository;
 import com.wzy.aischeduler.service.AuthService;
+import com.wzy.aischeduler.service.BuddyStateService;
 import com.wzy.aischeduler.service.DataImportService;
 import com.wzy.aischeduler.service.TaskService;
 
@@ -33,15 +35,18 @@ public class TaskController {
     private final TaskService taskService;
     private final TaskRepository taskRepository;
     private final AuthService authService;
+    private final BuddyStateService buddyStateService;
 
     public TaskController(DataImportService dataImportService,
                           TaskService taskService,
                           TaskRepository taskRepository,
-                          AuthService authService) {
+                          AuthService authService,
+                          BuddyStateService buddyStateService) {
         this.dataImportService = dataImportService;
         this.taskService = taskService;
         this.taskRepository = taskRepository;
         this.authService = authService;
+        this.buddyStateService = buddyStateService;
     }
 
     @GetMapping
@@ -114,6 +119,29 @@ public class TaskController {
             Task task = requireOwnedTask(id, authToken);
             taskService.updateTaskColor(task.getId(), newColor);
             return ResponseEntity.ok("Color updated.");
+        } catch (SecurityException e) {
+            return ResponseEntity.status(403).body(e.getMessage());
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body("Update failed: " + e.getMessage());
+        }
+    }
+
+    @PatchMapping("/{id}/complete")
+    public ResponseEntity<?> setTaskCompleted(@PathVariable Long id,
+                                              @RequestParam String authToken,
+                                              @RequestBody Map<String, Boolean> requestBody) {
+        try {
+            Task task = requireOwnedTask(id, authToken);
+            boolean completed = Boolean.TRUE.equals(requestBody.get("completed"));
+            task.setCompleted(completed);
+            task.setCompletedAt(completed ? LocalDateTime.now(ZoneId.of("UTC")) : null);
+            taskRepository.save(task);
+
+            BuddyStateDTO buddyState = buddyStateService.getStateAfterCompletionToggle(task.getUser().getId(), task);
+            return ResponseEntity.ok(Map.of(
+                    "message", "Task completion updated.",
+                    "buddyState", buddyState
+            ));
         } catch (SecurityException e) {
             return ResponseEntity.status(403).body(e.getMessage());
         } catch (Exception e) {

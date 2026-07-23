@@ -7,6 +7,7 @@ public class TaskResponseDTO {
     private String dueDate;
     private String description;
     private String color;
+    private boolean completed;
 
     public TaskResponseDTO() {}
 
@@ -27,4 +28,7 @@ public class TaskResponseDTO {
 
     public String getColor() { return color; }
     public void setColor(String color) { this.color = color; }
+
+    public boolean isCompleted() { return completed; }
+    public void setCompleted(boolean completed) { this.completed = completed; }
 }

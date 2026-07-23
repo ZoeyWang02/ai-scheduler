@@ -23,6 +23,7 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -55,11 +56,54 @@ public class AuthController {
     @Value("${google.oauth.redirect-uri:}")
     private String googleRedirectUri;
 
+    @Value("${app.cors.allowed-origins}")
+    private String allowedOrigins;
+
     @Autowired
     private UserRepository userRepository;
 
     @Autowired
     private AuthService authService;
+
+    @GetMapping("/preferences")
+    public ResponseEntity<?> getPreferences(@RequestParam Long userId, @RequestParam String authToken) {
+        try {
+            User user = authService.requireUser(userId, authToken);
+            return ResponseEntity.ok(user.getPreferences() == null ? Map.of() : user.getPreferences());
+        } catch (SecurityException e) {
+            return ResponseEntity.status(401).body(Map.of("message", e.getMessage()));
+        }
+    }
+
+    @PutMapping("/preferences")
+    public ResponseEntity<?> updatePreferences(@RequestParam Long userId, @RequestParam String authToken,
+                                               @RequestBody Map<String, Object> preferences) {
+        try {
+            User user = authService.requireUser(userId, authToken);
+            user.setPreferences(preferences);
+            userRepository.save(user);
+            return ResponseEntity.ok(Map.of("message", "Preferences updated."));
+        } catch (SecurityException e) {
+            return ResponseEntity.status(401).body(Map.of("message", e.getMessage()));
+        }
+    }
+
+    @PutMapping("/timezone")
+    public ResponseEntity<?> updateTimezone(@RequestParam Long userId, @RequestParam String authToken,
+                                            @RequestBody Map<String, String> body) {
+        try {
+            User user = authService.requireUser(userId, authToken);
+            String timezone = body.get("timezone");
+            if (timezone == null || timezone.isBlank()) {
+                return ResponseEntity.badRequest().body(Map.of("message", "Timezone is required"));
+            }
+            user.setTimezone(timezone);
+            userRepository.save(user);
+            return ResponseEntity.ok(Map.of("message", "Timezone updated.", "timezone", timezone));
+        } catch (SecurityException e) {
+            return ResponseEntity.status(401).body(Map.of("message", e.getMessage()));
+        }
+    }
 
     @PostMapping("/signup")
     public ResponseEntity<?> signUp(@RequestBody AuthRequest request) {
@@ -187,7 +231,7 @@ public class AuthController {
                                                   @RequestParam(required = false) String state,
                                                   @RequestParam(required = false) String error) {
         if (error != null) {
-            return oauthCallbackPage("Google sign-in failed: " + escapeForScript(error), null);
+            return oauthCallbackPage("Google sign-in failed: " + error, null);
         }
         if (code == null || state == null || !isValidOAuthState(state)) {
             return oauthCallbackPage("Google sign-in state is invalid or expired.", null);
@@ -211,7 +255,7 @@ public class AuthController {
             User savedUser = userRepository.save(user);
             return oauthCallbackPage(null, AuthResponseDTO.from(savedUser));
         } catch (Exception exception) {
-            return oauthCallbackPage("Google sign-in failed. " + escapeForScript(exception.getMessage()), null);
+            return oauthCallbackPage("Google sign-in failed. " + exception.getMessage(), null);
         }
     }
 
@@ -285,33 +329,29 @@ public class AuthController {
         return candidate;
     }
 
-    private ResponseEntity<String> oauthCallbackPage(String error, AuthResponseDTO user) {
-        String script;
+    private ResponseEntity<?> oauthCallbackPage(String error, AuthResponseDTO user) {
+        // The frontend is a separate origin from this API (see app.cors.allowed-origins),
+        // so the result can't be handed off via same-origin localStorage — it rides in the
+        // redirect's URL fragment instead, which the frontend picks up on load and never
+        // sends to any server (fragments aren't part of an HTTP request).
+        String frontendOrigin = allowedOrigins.split(",")[0].trim();
+        String fragment;
         if (user == null) {
-            script = "localStorage.setItem('nexusOAuthError', '" + escapeForScript(error) + "');";
+            fragment = "oauthError=" + urlEncode(error == null ? "Google sign-in failed." : error);
         } else {
             try {
-                script = "localStorage.setItem('nexusUser', " + objectMapper.writeValueAsString(objectMapper.writeValueAsString(user)) + ");";
+                fragment = "oauthUser=" + urlEncode(objectMapper.writeValueAsString(user));
             } catch (Exception exception) {
-                script = "localStorage.setItem('nexusOAuthError', 'Unable to save OAuth session.');";
+                fragment = "oauthError=" + urlEncode("Unable to save OAuth session.");
             }
         }
-        String html = "<!doctype html><html><body><script>"
-                + script
-                + "window.location.replace('/');"
-                + "</script></body></html>";
-        return ResponseEntity.ok().header(HttpHeaders.CONTENT_TYPE, "text/html; charset=UTF-8").body(html);
+        return ResponseEntity.status(HttpStatus.FOUND)
+                .header(HttpHeaders.LOCATION, frontendOrigin + "/index.html#" + fragment)
+                .build();
     }
 
     private String urlEncode(String value) {
         return URLEncoder.encode(value, StandardCharsets.UTF_8);
-    }
-
-    private String escapeForScript(String value) {
-        if (value == null) {
-            return "";
-        }
-        return value.replace("\\", "\\\\").replace("'", "\\'").replace("\n", " ");
     }
 
     private String normalizeEmail(String email) {

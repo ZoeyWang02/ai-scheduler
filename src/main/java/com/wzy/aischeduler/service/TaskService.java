@@ -41,6 +41,7 @@ public class TaskService {
         dto.setTitle(task.getTitle());
         dto.setDescription(task.getDescription());
         dto.setColor(task.getColor());
+        dto.setCompleted(task.isCompleted());
 
         if (task.getDueDate() == null) {
             dto.setLocalDueDate("No Deadline");

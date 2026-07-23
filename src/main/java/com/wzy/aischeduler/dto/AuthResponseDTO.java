@@ -1,5 +1,7 @@
 package com.wzy.aischeduler.dto;
 
+import java.util.Map;
+
 import com.wzy.aischeduler.entity.User;
 
 public class AuthResponseDTO {
@@ -9,6 +11,7 @@ public class AuthResponseDTO {
     private String name;
     private String timezone;
     private String token;
+    private Map<String, Object> preferences;
 
     public static AuthResponseDTO from(User user) {
         AuthResponseDTO dto = new AuthResponseDTO();
@@ -18,6 +21,7 @@ public class AuthResponseDTO {
         dto.setName(user.getName());
         dto.setTimezone(user.getTimezone());
         dto.setToken(user.getAuthToken());
+        dto.setPreferences(user.getPreferences());
         return dto;
     }
 
@@ -38,4 +42,7 @@ public class AuthResponseDTO {
 
     public String getToken() { return token; }
     public void setToken(String token) { this.token = token; }
+
+    public Map<String, Object> getPreferences() { return preferences; }
+    public void setPreferences(Map<String, Object> preferences) { this.preferences = preferences; }
 }

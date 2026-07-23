@@ -123,6 +123,51 @@ public class AiService {
         }
     }
 
+    public boolean isConfigured() {
+        return apiKey != null && !apiKey.isBlank();
+    }
+
+    /**
+     * 单条文本翻译（用户主动点击触发，不做批量/自动翻译）
+     */
+    public String translateText(String text, String targetLang) {
+        if (apiKey == null || apiKey.isBlank()) {
+            return text;
+        }
+        if (text == null || text.isBlank()) {
+            return text;
+        }
+        boolean isEn = "en".equals(targetLang);
+        String systemPrompt = isEn
+                ? "You are a translator. Translate the user's text into English. Return ONLY the translated text, no quotes, no explanation, no markdown."
+                : "你是一个翻译助手。请将用户提供的文本翻译成中文。只返回翻译结果，不要引号、不要解释、不要 markdown。";
+
+        Map<String, Object> requestBody = Map.of(
+                "model", model,
+                "temperature", 0.2,
+                "messages", List.of(
+                        Map.of("role", "system", "content", systemPrompt),
+                        Map.of("role", "user", "content", text)
+                )
+        );
+
+        try {
+            Map<String, Object> response = restClient.post()
+                    .uri(apiUrl)
+                    .header(HttpHeaders.AUTHORIZATION, "Bearer " + apiKey)
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .body(requestBody)
+                    .retrieve()
+                    .body(Map.class);
+            List<Map<String, Object>> choices = (List<Map<String, Object>>) response.get("choices");
+            Map<String, Object> message = (Map<String, Object>) choices.get(0).get("message");
+            return ((String) message.get("content")).trim();
+        } catch (Exception e) {
+            System.err.println("❌ AI 翻译请求失败: " + e.getMessage());
+            throw new RuntimeException("Translation failed", e);
+        }
+    }
+
     /**
      * 核心双语聊天方法
      */

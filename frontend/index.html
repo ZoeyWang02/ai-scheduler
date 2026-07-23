@@ -1,0 +1,382 @@
+<!DOCTYPE html>
+<html lang="zh">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Nexus - Intelligent Flow</title>
+    <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Instrument+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@500;600;700&family=Rye&family=Pixelify+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://unpkg.com/tippy.js@6/dist/tippy.css" />
+    <link rel="stylesheet" href="https://unpkg.com/tippy.js@6/themes/light-border.css" />
+    <link rel="stylesheet" href="styles/tokens.css">
+    <link rel="stylesheet" href="styles/themes.css">
+    <link rel="stylesheet" href="styles/base.css">
+    <link rel="stylesheet" href="styles/layout.css">
+    <link rel="stylesheet" href="styles/components.css">
+
+    <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.10/index.global.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.10/locales-all.global.min.js"></script>
+    <script src="https://unpkg.com/@popperjs/core@2"></script>
+    <script src="https://unpkg.com/tippy.js@6"></script>
+</head>
+<body>
+
+    <div id="toast-container"></div>
+
+    <div id="authModal" class="modal">
+        <div class="modal-content" style="width: 360px; max-width: calc(100vw - 48px);">
+            <span class="close-btn" onclick="closeAuthModal()">&times;</span>
+            <h2 id="authModalTitle" style="margin: 0 0 18px; font-size: 20px;">Account</h2>
+            <div class="auth-panel">
+                <div id="authForm">
+                    <div class="auth-tabs">
+                        <button id="authSignInTab" onclick="setAuthMode('signin')" data-i18n="btnSignInTab">Sign in</button>
+                        <button id="authSignUpTab" onclick="setAuthMode('signup')" data-i18n="btnSignUpTab">Sign up</button>
+                    </div>
+                    <input id="authUsername" type="text" placeholder="Username"
+                        data-i18n-placeholder="authUsernamePlaceholder">
+                    <input id="authEmail" type="email" placeholder="Email" data-i18n-placeholder="authEmailPlaceholder">
+                    <input id="authIdentifier" type="text" placeholder="Username or email"
+                        data-i18n-placeholder="authIdPlaceholder">
+                    <input id="authPassword" type="password" placeholder="Password"
+                        data-i18n-placeholder="authPasswordPlaceholder">
+                    <div id="forgotPasswordRow" class="forgot-row">
+                        <button class="text-button" onclick="setAuthMode('reset')" data-i18n="forgotPasswordLink">Forgot password?</button>
+                    </div>
+                    <div id="resetFields" style="display: none; flex-direction: column; gap: 9px;">
+                        <input id="resetEmail" type="email" placeholder="Email" data-i18n-placeholder="authEmailPlaceholder">
+                        <div style="display: grid; grid-template-columns: 1fr auto; gap: 8px;">
+                            <input id="resetCode" type="text" placeholder="Code" data-i18n-placeholder="resetCodePlaceholder">
+                            <button class="social-auth-button" onclick="requestPasswordCode()" data-i18n="sendCodeBtn">Send</button>
+                        </div>
+                        <input id="resetPassword" type="password" placeholder="New password"
+                            data-i18n-placeholder="resetPasswordPlaceholder">
+                    </div>
+                    <div class="auth-actions">
+                        <button id="authSubmitBtn" onclick="submitCurrentAuth()">Sign in</button>
+                    </div>
+                    <div id="socialAuthBlock" class="auth-divider" data-i18n="orContinueWith">or continue with</div>
+                    <div id="socialAuthGrid" class="social-auth-grid">
+                        <button class="social-auth-button" onclick="startExternalAuth('google')">Google</button>
+                        <button class="social-auth-button" onclick="startExternalAuth('apple')">Apple</button>
+                        <button class="social-auth-button" onclick="startExternalAuth('sso')">SSO</button>
+                    </div>
+                    <div class="auth-hint" id="authHint" data-i18n="authHint">使用用户名或邮箱，加密码登录。</div>
+                </div>
+                <div id="authUser" class="auth-user">
+                    <div>
+                        <div class="auth-name" id="authUserName">Guest</div>
+                        <div id="authUserEmail">未登录</div>
+                    </div>
+                    <button class="link-button" onclick="signOut()">退出</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="lifePanelModal" class="modal">
+        <div class="modal-content" style="width: 480px; max-width: calc(100vw - 48px);">
+            <span class="close-btn" onclick="closeLifePanelModal()">&times;</span>
+            <div class="panel-title-row">
+                <div class="panel-title" data-i18n="analysisTitle">作息追踪与分析</div>
+                <div class="analysis-tabs">
+                    <button class="active" data-period="day" onclick="switchAnalysisPeriod('day', this)"
+                        data-i18n="btnDay">日</button>
+                    <button data-period="week" onclick="switchAnalysisPeriod('week', this)"
+                        data-i18n="btnWeek">周</button>
+                    <button data-period="month" onclick="switchAnalysisPeriod('month', this)"
+                        data-i18n="btnMonth">月</button>
+                </div>
+            </div>
+            <div class="life-summary">
+                <div class="metric-tile">
+                    <div class="metric-label" data-i18n="metricRhythm">节奏画像</div>
+                    <div class="metric-value" id="rhythmLabel" data-i18n="analyzing">分析中...</div>
+                </div>
+                <div class="metric-tile">
+                    <div class="metric-label" data-i18n="metricFocus">专注模式</div>
+                    <div class="metric-value" id="focusStyle" data-i18n="analyzing">分析中...</div>
+                </div>
+                <div class="metric-tile">
+                    <div class="metric-label" data-i18n="metricPeak">巅峰时段</div>
+                    <div class="metric-value" id="peakWindow" data-i18n="analyzing">分析中...</div>
+                </div>
+                <div class="metric-tile">
+                    <div class="metric-label" data-i18n="metricCompletion">任务完成</div>
+                    <div class="metric-value" id="taskCompletion" data-i18n="analyzing">分析中...</div>
+                </div>
+            </div>
+            <div class="time-buckets" id="timeBuckets"></div>
+            <div class="rhythm-bars" id="rhythmBars"></div>
+            <div class="life-reco" id="lifeRecommendation" data-i18n="loadingRhythm">正在读取你的任务节奏。</div>
+        </div>
+    </div>
+
+    <div id="buddyStatusModal" class="modal" data-theme="stardew">
+        <div class="modal-content buddy-poster-modal" style="width: 420px; max-width: calc(100vw - 48px); padding: 0;">
+            <span class="close-btn" onclick="closeBuddyStatusModal()">&times;</span>
+            <div class="buddy-poster-stage">
+                <div class="buddy-poster-eyebrow">&#10022; STUDY BUDDY &#10022;</div>
+                <div class="buddy-poster-frame">
+                    <div id="buddyPosterCard" class="buddy-card"></div>
+                </div>
+                <div class="buddy-poster-footer">&#9830; Nexus Flow &middot; Stardew mode &middot; <span id="buddyPosterDate"></span> &#9830;</div>
+            </div>
+        </div>
+    </div>
+
+    <div id="settingsModal" class="modal">
+        <div class="modal-content" style="width: 420px; max-width: calc(100vw - 48px);">
+            <span class="close-btn" onclick="closeSettingsModal()">&times;</span>
+            <h2 style="margin: 0 0 18px; font-size: 20px;" data-i18n="settingsTitle">设置</h2>
+
+            <div class="settings-section">
+                <div class="control-group">
+                    <label for="timezoneSelect" data-i18n="timezoneLabel">🌍 时区同步</label>
+                    <select id="timezoneSelect" class="custom-input" onchange="onTimezoneChange()"></select>
+                </div>
+            </div>
+
+            <div class="settings-section">
+                <div class="settings-section-title" data-i18n="settingsTheme">界面主题</div>
+                <select id="themeSelect" class="custom-input" onchange="previewTheme(this.value)">
+                    <option value="stardew">🌾 Stardew Valley</option>
+                    <option value="stardew-night" data-i18n="themeStardewNight">🌙 星露谷 · 深夜</option>
+                    <option value="light" hidden>☀️ Light</option>
+                    <option value="dark" hidden>🌙 Dark</option>
+                </select>
+            </div>
+
+            <div class="settings-section">
+                <div class="settings-section-title" data-i18n="settingsBuddy">Study Buddy 头像</div>
+                <div id="avatarPicker" class="avatar-grid"></div>
+            </div>
+
+            <div class="settings-section" id="buddyStatusSection">
+                <div class="settings-section-title" data-i18n="settingsBuddyStatus">Study Buddy 状态</div>
+                <div id="buddyStatusBlock" class="buddy-status-block"></div>
+            </div>
+
+            <div class="settings-section">
+                <div class="control-group">
+                    <label data-i18n="remindersLabel">🔔 桌面提醒</label>
+                    <button class="btn-sync" id="remindersToggleBtn" onclick="toggleReminders()" data-i18n="remindersEnableBtn">开启截止提醒</button>
+                </div>
+                <div id="remindersStatus" class="reminders-status"></div>
+            </div>
+
+            <div class="settings-section">
+                <div class="control-group">
+                    <label data-i18n="buddyPositionLabel">📍 Study Buddy 位置</label>
+                    <button class="btn-sync" id="resetBuddyPositionBtn" onclick="resetBuddyWidgetPosition()" data-i18n="remindersResetPositionBtn">重置位置</button>
+                </div>
+            </div>
+
+            <div class="settings-section" style="margin-bottom: 0; display: flex; justify-content: flex-end;">
+                <button class="top-auth-button auth-primary" onclick="saveSettings()" data-i18n="settingsSave">保存</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="taskModal" class="modal">
+        <div class="modal-content">
+            <span class="close-btn" onclick="closeModal()">&times;</span>
+            <div style="border-bottom: 1px solid var(--border-light); padding-bottom: 16px; margin-bottom: 20px;">
+                <h2 id="modalTitle"
+                    style="margin: 0; font-size: 20px; font-weight: 700; color: var(--primary); letter-spacing: 0;"
+                    data-i18n="modalTitleText">任务详情</h2>
+                <div id="modalDate" style="color: var(--accent); font-size: 13px; margin-top: 6px; font-weight: 600;">
+                </div>
+            </div>
+            <div id="modalDescription"
+                style="line-height: 1.6; font-size: 14px; color: #475569; word-wrap: break-word;"></div>
+            <div
+                style="margin-top: 16px; padding-top: 16px; border-top: 1px dashed var(--border-light); display: flex; align-items: center; gap: 10px;">
+                <label style="font-size: 13px; font-weight: 600; color: var(--text-muted);"
+                    data-i18n="setColorLabel">标签颜色:</label>
+                <input type="color" id="taskColorPicker"
+                    style="border: none; width: 28px; height: 28px; cursor: pointer; padding: 0; background: transparent;">
+                <button id="saveColorBtn" onclick="updateTaskColor()"
+                    style="padding: 6px 12px; background: #f1f5f9; color: #334155; border: none; border-radius: 6px; font-size: 12px; cursor: pointer; font-weight: 600;"
+                    data-i18n="saveColorBtn">保存颜色</button>
+            </div>
+            <div style="margin-top: 24px; text-align: right; display: flex; justify-content: flex-end; gap: 10px;">
+                <button id="editTaskBtn" class="btn-sync"
+                    style="background: var(--accent); border: none; display: none;" data-i18n="editBtn">编辑</button>
+                <button id="deleteTaskBtn" data-i18n="deleteTaskBtn">移除任务</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="editTaskModal" class="modal">
+        <div class="modal-content">
+            <span class="close-btn"
+                onclick="document.getElementById('editTaskModal').style.display='none'">&times;</span>
+            <h2 id="editModalTitle" style="margin-top:0;">新增/编辑任务</h2>
+            <input type="hidden" id="editTaskId">
+            <div style="display: flex; flex-direction: column; margin-top: 16px;">
+                <input type="text" id="editTaskName" placeholder="任务名称..." class="custom-input">
+
+                <label style="font-size: 11px; color: var(--text-muted); font-weight: 600; margin-bottom: 4px;">起止时间
+                    (跟随左侧所选时区)</label>
+                <input type="datetime-local" id="editTaskDate" class="custom-input" style="margin-bottom: 8px;">
+                <input type="datetime-local" id="editTaskEndDate" class="custom-input">
+
+                <textarea id="editTaskDesc" placeholder="详情描述..." class="custom-input"
+                    style="height: 80px; resize: none;"></textarea>
+                <button onclick="saveManualTask()" class="btn-sync" style="background: var(--accent); color: white;">保存任务</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="importModal" class="modal">
+        <div class="modal-content" style="width: 560px; max-width: calc(100vw - 48px);">
+            <span class="close-btn" onclick="closeImportModal()">&times;</span>
+            <h2 style="margin-top:0;" data-i18n="importTitle">Import coursework</h2>
+            <div class="auth-panel" style="gap: 12px;">
+                <input type="file" id="unifiedImportFile" accept=".json,.ics,application/json,text/calendar">
+                <button class="btn-sync" onclick="previewUnifiedImport()" data-i18n="previewImportBtn">Preview import</button>
+                <div id="importSummary" class="auth-hint"></div>
+                <div id="importPreviewList" style="display: flex; flex-direction: column; gap: 8px; max-height: 320px; overflow-y: auto;"></div>
+                <div class="auth-actions">
+                    <button id="confirmImportBtn" onclick="confirmUnifiedImport()" style="display:none;" data-i18n="confirmImportBtn">Confirm selected</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="app-body">
+    <nav id="iconRail" aria-label="Primary">
+        <div class="rail-mark" aria-hidden="true">
+            <svg class="mark-modern" width="16" height="16" viewBox="0 0 16 16" fill="none">
+                <path d="M1 8H4.5L6 4L8.5 12L10.5 6L11.5 8H15" stroke="var(--rail-bg)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+            <svg class="mark-pixel" width="16" height="16" viewBox="0 0 16 16" shape-rendering="crispEdges">
+                <rect x="1" y="8" width="2" height="2" fill="var(--rail-bg)"/>
+                <rect x="3" y="8" width="2" height="2" fill="var(--rail-bg)"/>
+                <rect x="5" y="6" width="2" height="2" fill="var(--rail-bg)"/>
+                <rect x="5" y="4" width="2" height="2" fill="var(--rail-bg)"/>
+                <rect x="7" y="8" width="2" height="2" fill="var(--rail-bg)"/>
+                <rect x="7" y="10" width="2" height="2" fill="var(--rail-bg)"/>
+                <rect x="9" y="8" width="2" height="2" fill="var(--rail-bg)"/>
+                <rect x="9" y="6" width="2" height="2" fill="var(--rail-bg)"/>
+                <rect x="11" y="8" width="2" height="2" fill="var(--rail-bg)"/>
+                <rect x="13" y="8" width="2" height="2" fill="var(--rail-bg)"/>
+            </svg>
+        </div>
+
+        <button id="chatToggleBtn" class="rail-btn" onclick="toggleChatDrawer()" title="Nexus.ai" aria-label="Assistant" aria-pressed="false">
+            <svg width="18" height="18" viewBox="0 0 18 18" fill="none"><path d="M2 3.5h14v9H7l-3 3v-3H2v-9z" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/></svg>
+        </button>
+
+        <button id="taskToggleBtn" class="rail-btn" onclick="toggleTaskDrawer()" title="待办速览" aria-label="Task list" aria-pressed="false" data-i18n-title="taskListLabel">
+            <svg width="18" height="18" viewBox="0 0 18 18" fill="none"><path d="M4 4.5h10M4 9h10M4 13.5h10" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/><circle cx="1.6" cy="4.5" r="1" fill="currentColor"/><circle cx="1.6" cy="9" r="1" fill="currentColor"/><circle cx="1.6" cy="13.5" r="1" fill="currentColor"/></svg>
+        </button>
+
+        <button class="rail-btn" onclick="openLifePanelModal()" title="作息追踪与分析" aria-label="Rhythm analysis" data-i18n-title="analysisTitle">
+            <svg width="18" height="18" viewBox="0 0 18 18" fill="none"><path d="M3.5 14V9M9 14V4M14.5 14V7" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
+        </button>
+
+        <button onclick="openEditModal()" class="rail-btn" title="手动添加任务" aria-label="Add task" data-i18n-title="taskListLabel">
+            <svg width="18" height="18" viewBox="0 0 18 18" fill="none"><path d="M9 3.5v11M3.5 9h11" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
+        </button>
+
+        <button onclick="openImportModal()" class="rail-btn" title="导入课业" aria-label="Import coursework" data-i18n-title="openImportBtn">
+            <svg width="18" height="18" viewBox="0 0 18 18" fill="none"><path d="M9 2.5v7M6 7l3 3 3-3M3 10v4.5h12V10" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </button>
+
+        <button id="nightToggleBtn" onclick="toggleNightMode()" class="rail-btn" title="切换深夜模式" aria-label="Toggle night mode" data-i18n-title="nightModeToggle">
+            <svg class="night-icon-moon" width="18" height="18" viewBox="0 0 18 18" fill="none"><path d="M14.6 10.4A5.6 5.6 0 1 1 7.6 3.4a4.4 4.4 0 0 0 7 7Z" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            <svg class="night-icon-sun" width="18" height="18" viewBox="0 0 18 18" fill="none"><circle cx="9" cy="9" r="3.2" stroke="currentColor" stroke-width="1.4"/><path d="M9 1.6V3.1M9 14.9v1.5M1.6 9H3.1M14.9 9h1.5M3.75 3.75l1.05 1.05M13.2 13.2l1.05 1.05M14.25 3.75l-1.05 1.05M4.8 13.2l-1.05 1.05" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>
+        </button>
+
+        <div class="rail-spacer"></div>
+
+        <button id="langToggleBtn" class="rail-btn" onclick="toggleLanguage()" title="English" aria-label="Toggle language">中</button>
+
+        <button id="settingsBtn" class="rail-btn" onclick="openSettingsModal()" title="Settings" aria-label="Settings">
+            <svg viewBox="0 0 16 10" width="16" height="10" fill="currentColor" shape-rendering="crispEdges">
+                <rect x="7" y="0" width="2" height="2" />
+                <rect x="5" y="2" width="6" height="1" />
+                <rect x="4" y="3" width="1" height="1" />
+                <rect x="11" y="3" width="1" height="1" />
+                <rect x="0" y="4" width="2" height="2" />
+                <rect x="4" y="4" width="1" height="2" />
+                <rect x="11" y="4" width="1" height="2" />
+                <rect x="14" y="4" width="2" height="2" />
+                <rect x="4" y="6" width="1" height="1" />
+                <rect x="11" y="6" width="1" height="1" />
+                <rect x="5" y="7" width="6" height="1" />
+                <rect x="7" y="8" width="2" height="2" />
+            </svg>
+        </button>
+
+        <div id="authGuestNav">
+            <button class="rail-btn" onclick="openAuthModal('signin')" title="Sign in" aria-label="Sign in" data-i18n-title="btnSignIn">
+                <svg width="18" height="18" viewBox="0 0 18 18" fill="none"><circle cx="9" cy="6" r="3" stroke="currentColor" stroke-width="1.4"/><path d="M3 15c1-3 3.5-4.5 6-4.5s5 1.5 6 4.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>
+            </button>
+        </div>
+
+        <div id="authUserNav" style="display: none;">
+            <span id="topAuthName" class="sr-only"></span>
+            <button id="topAuthButton" class="rail-btn" onclick="openAuthModal('account')" title="Account" aria-label="Account" data-i18n-title="btnAccount">
+                <svg width="18" height="18" viewBox="0 0 18 18" fill="currentColor"><circle cx="9" cy="6" r="3"/><path d="M3 15c1-3 3.5-4.5 6-4.5s5 1.5 6 4.5z"/></svg>
+            </button>
+        </div>
+    </nav>
+
+    <div id="calendar-container">
+        <div id="calendar"></div>
+    </div>
+
+    <div id="taskDrawer" class="drawer" role="dialog" aria-label="Task list" aria-hidden="true">
+        <div class="sidebar-section-header">
+            <label class="sidebar-section-label" data-i18n="taskListLabel">待办速览</label>
+            <button onclick="openEditModal()" class="add-task-btn"
+                title="手动添加任务" aria-label="手动添加任务">+</button>
+            <button class="close-btn" onclick="closeTaskDrawer()" aria-label="Close task list">&times;</button>
+        </div>
+
+        <div id="taskList"></div>
+    </div>
+
+    </div>
+
+    <div id="buddyWidget" class="buddy-widget" tabindex="0" role="button" aria-label="Study Buddy" aria-haspopup="true" aria-expanded="false">
+        <img id="buddyWidgetAvatar" src="/images/junimo-avatar.svg" alt="" class="buddy-widget-avatar">
+        <div id="buddyWidgetFlyout" class="buddy-widget-flyout" role="menu" aria-hidden="true">
+            <div id="buddyWidgetCard" class="buddy-card"></div>
+            <div id="buddyWidgetGreeting" class="buddy-widget-greeting"></div>
+            <button type="button" class="buddy-widget-flyout-btn" data-action="chat" data-i18n="buddyWidgetChat">💬 聊天</button>
+            <button type="button" class="buddy-widget-flyout-btn" data-action="analysis" data-i18n="buddyWidgetAnalysis">📊 学习状态分析</button>
+            <button type="button" class="buddy-widget-flyout-btn" data-action="status" data-i18n="buddyWidgetStatus">🎴 Buddy 状态</button>
+        </div>
+        <div id="buddyWidgetBubble" class="buddy-widget-bubble" aria-live="polite"></div>
+
+        <div id="chatDrawer" class="buddy-chat-window" role="dialog" aria-label="Assistant" aria-hidden="true">
+            <div id="chat-container">
+                <div class="chat-header">
+                    <span style="display: flex; align-items: center; gap: 8px;">
+                        <span style="position: relative; display: inline-flex;">
+                            <img id="chatHeaderAvatar" src="/images/junimo-avatar.svg" alt="Study Buddy" class="chat-header-avatar">
+                            <span id="buddyMoodBadge" class="buddy-mood-badge" style="display: none;"></span>
+                        </span>
+                        Nexus.ai
+                    </span>
+                    <span id="chatStatus" class="chat-status">鍦ㄧ嚎</span>
+                    <button class="close-btn" onclick="closeChatDrawer()" aria-label="Close assistant">&times;</button>
+                </div>
+                <div id="messages"></div>
+                <div id="input-area">
+                    <input type="text" id="userInput" placeholder="输入任务名称进行拆解..." data-i18n-placeholder="chatPlaceholder"
+                        onkeydown="if(event.key === 'Enter') sendMessage()">
+                    <button onclick="sendMessage()" data-i18n="sendBtn">发送</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script type="module" src="js/app.js"></script>
+
+</body>
+
+</html>
