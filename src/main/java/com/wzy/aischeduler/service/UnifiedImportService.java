@@ -5,18 +5,24 @@ import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
+import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
+import java.util.stream.Collectors;
 
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
 import com.fasterxml.jackson.databind.JsonNode;
@@ -32,6 +38,15 @@ import com.wzy.aischeduler.repository.UserRepository;
 
 @Service
 public class UnifiedImportService {
+    // What confirming an item would do to the user's existing data.
+    static final String STATUS_NEW = "new";
+    static final String STATUS_UPDATE = "update";
+    static final String STATUS_DUPLICATE = "duplicate";
+
+    private enum Outcome { CREATED, UPDATED, DUPLICATE, INVALID }
+
+    private record TaskMatch(String status, Task existing) {}
+
     private final ObjectMapper objectMapper = new ObjectMapper();
     private final ConcurrentMap<String, UnifiedImportPreviewDTO> previews = new ConcurrentHashMap<>();
 
@@ -71,6 +86,7 @@ public class UnifiedImportService {
             }
             preview.setImportId(UUID.randomUUID().toString());
             preview.setFileName(fileName);
+            annotate(preview, userId);
             preview.setSummary(buildSummary(preview));
             previews.put(preview.getImportId(), preview);
             return preview;
@@ -79,6 +95,14 @@ public class UnifiedImportService {
         }
     }
 
+    /**
+     * Writes the selected preview items. A null {@code itemIds} means "everything";
+     * an empty list means the user selected nothing, so nothing is written.
+     *
+     * The counts reflect what actually happened: an item that already exists is a
+     * duplicate (or an update when its deadline changed), never counted as created.
+     */
+    @Transactional
     public Map<String, Object> confirm(String importId, List<String> itemIds, Long userId) {
         User user = requireUser(userId);
         UnifiedImportPreviewDTO preview = previews.get(importId);
@@ -86,31 +110,132 @@ public class UnifiedImportService {
             throw new IllegalArgumentException("Import preview expired. Please upload the file again.");
         }
 
-        List<String> selected = itemIds == null || itemIds.isEmpty()
-                ? preview.getItems().stream().map(UnifiedImportItemDTO::getId).toList()
-                : itemIds;
+        Set<String> selected = itemIds == null
+                ? preview.getItems().stream().map(UnifiedImportItemDTO::getId).collect(Collectors.toSet())
+                : new HashSet<>(itemIds);
+        Set<String> courseKeys = courseKeys(userId);
 
-        int tasks = 0;
-        int courses = 0;
+        int tasksCreated = 0;
+        int tasksUpdated = 0;
+        int coursesCreated = 0;
+        int duplicates = 0;
         int skipped = 0;
         for (UnifiedImportItemDTO item : preview.getItems()) {
             if (!selected.contains(item.getId())) {
                 skipped++;
                 continue;
             }
+            Outcome outcome;
             if ("task".equals(item.getKind())) {
-                saveTask(item, user);
-                tasks++;
+                outcome = saveTask(item, user);
             } else if ("course".equals(item.getKind())) {
-                saveCourse(item, user);
-                courses++;
+                outcome = saveCourse(item, user, courseKeys);
             } else {
-                skipped++;
+                outcome = Outcome.INVALID;
+            }
+            switch (outcome) {
+                case CREATED -> {
+                    if ("task".equals(item.getKind())) {
+                        tasksCreated++;
+                    } else {
+                        coursesCreated++;
+                    }
+                }
+                case UPDATED -> tasksUpdated++;
+                case DUPLICATE -> duplicates++;
+                case INVALID -> skipped++;
             }
         }
 
         previews.remove(importId);
-        return Map.of("tasks", tasks, "courses", courses, "skipped", skipped);
+        return Map.of(
+                "tasksCreated", tasksCreated,
+                "tasksUpdated", tasksUpdated,
+                "coursesCreated", coursesCreated,
+                "duplicates", duplicates,
+                "skipped", skipped,
+                // Kept for older clients: what was written, not what was selected.
+                "tasks", tasksCreated + tasksUpdated,
+                "courses", coursesCreated);
+    }
+
+    /**
+     * Marks each preview item with whether it is already in the past and how it
+     * relates to what the user already has, so the UI can pre-select sensibly
+     * (new, upcoming items) instead of importing a whole semester's history.
+     */
+    private void annotate(UnifiedImportPreviewDTO preview, Long userId) {
+        LocalDateTime now = LocalDateTime.now(ZoneOffset.UTC);
+        Set<String> courseKeys = courseKeys(userId);
+        for (UnifiedImportItemDTO item : preview.getItems()) {
+            if ("course".equals(item.getKind())) {
+                LocalDateTime start = parseStored(item.getStart());
+                LocalDateTime end = parseStored(item.getEnd());
+                item.setPast(end != null && end.isBefore(now));
+                boolean exists = start != null && end != null
+                        && courseKeys.contains(courseKey(item.getTitle(), start, end));
+                item.setStatus(exists ? STATUS_DUPLICATE : STATUS_NEW);
+            } else {
+                LocalDateTime due = parseStored(item.getDueDate());
+                item.setPast(due != null && due.isBefore(now));
+                TaskMatch match = matchTask(item, userId);
+                item.setStatus(match.status());
+                if (STATUS_UPDATE.equals(match.status()) && match.existing().getDueDate() != null) {
+                    item.setExistingDueDate(match.existing().getDueDate().toString());
+                }
+            }
+        }
+    }
+
+    /**
+     * Finds what an incoming task corresponds to in the user's data. Prefers the
+     * upstream item's stable key (so a changed deadline is an update, and two
+     * courses' "Homework 1" stay separate); falls back to title + deadline.
+     */
+    private TaskMatch matchTask(UnifiedImportItemDTO item, Long userId) {
+        LocalDateTime due = parseStored(item.getDueDate());
+        String key = item.getImportKey();
+        if (key != null) {
+            Optional<Task> byKey = taskRepository.findFirstByUserIdAndImportKey(userId, key);
+            if (byKey.isPresent()) {
+                Task existing = byKey.get();
+                // Never blank out a stored deadline just because this file had none
+                // (or its date could not be parsed): only a real new date is an update.
+                boolean changed = due != null && !Objects.equals(existing.getDueDate(), due);
+                return new TaskMatch(changed ? STATUS_UPDATE : STATUS_DUPLICATE, existing);
+            }
+        }
+        for (Task candidate : taskRepository.findByUserIdAndTitleAndDueDate(userId, item.getTitle(), due)) {
+            // A candidate carrying a *different* import key is a distinct upstream item
+            // that merely shares title and deadline (two courses' "Homework 1" due the
+            // same minute) — not a duplicate. Keyless candidates (manually created, or
+            // imported before keys existed) are matched, and adopt the key on confirm.
+            if (key == null || candidate.getImportKey() == null) {
+                return new TaskMatch(STATUS_DUPLICATE, candidate);
+            }
+        }
+        return new TaskMatch(STATUS_NEW, null);
+    }
+
+    private Set<String> courseKeys(Long userId) {
+        return courseEventRepository.findByUserId(userId).stream()
+                .map(event -> courseKey(event.getTitle(), event.getStartTime(), event.getEndTime()))
+                .collect(Collectors.toCollection(HashSet::new));
+    }
+
+    private String courseKey(String title, LocalDateTime start, LocalDateTime end) {
+        return Objects.toString(title, "") + "|" + start + "|" + end;
+    }
+
+    private LocalDateTime parseStored(String value) {
+        if (value == null || value.isBlank()) {
+            return null;
+        }
+        try {
+            return LocalDateTime.parse(value);
+        } catch (Exception ignored) {
+            return null;
+        }
     }
 
     private UnifiedImportPreviewDTO previewJson(String fileName, JsonNode root, String rawText) {
@@ -141,6 +266,14 @@ public class UnifiedImportService {
                 UnifiedImportItemDTO item = taskItem("canvas-" + index++, "Canvas", title);
                 item.setDueDate(parseDateToUtcString(assignment.path("due_at").asText(null)));
                 item.setDescription("From Canvas Group: " + groupName + "\nURL: " + assignment.path("html_url").asText(""));
+                // The assignment URL embeds the course, so same-named assignments in
+                // different courses get different keys.
+                String url = assignment.path("html_url").asText("");
+                if (!url.isBlank()) {
+                    item.setImportKey("canvas:" + url);
+                } else if (assignment.hasNonNull("id")) {
+                    item.setImportKey("canvas-id:" + assignment.path("id").asText());
+                }
                 item.setConfidence(0.98);
                 item.setNotes("Canvas parser matched assignments[].");
                 preview.getItems().add(item);
@@ -163,6 +296,12 @@ public class UnifiedImportService {
                 long commitmentMs = raw.path("timeCommitment").asLong(0);
                 double hours = commitmentMs / (1000.0 * 60 * 60);
                 item.setDescription(String.format("Source: Coursera\nEstimated time: %.2f hours\nSlug: %s", hours, raw.path("slug").asText("")));
+                String courseraId = raw.path("id").asText("");
+                if (!courseraId.isBlank()) {
+                    item.setImportKey("coursera:" + courseraId);
+                } else if (!raw.path("slug").asText("").isBlank()) {
+                    item.setImportKey("coursera-slug:" + raw.path("slug").asText());
+                }
                 item.setConfidence(0.92);
                 item.setNotes("Coursera parser matched linked.onDemandCourseMaterialItems.v2.");
                 preview.getItems().add(item);
@@ -255,31 +394,55 @@ public class UnifiedImportService {
         return item;
     }
 
-    private void saveTask(UnifiedImportItemDTO item, User user) {
-        if (!taskRepository.findByTitleAndUserId(item.getTitle(), user.getId()).isEmpty()) {
-            return;
+    private Outcome saveTask(UnifiedImportItemDTO item, User user) {
+        TaskMatch match = matchTask(item, user.getId());
+        String key = item.getImportKey();
+        LocalDateTime due = parseStored(item.getDueDate());
+
+        if (STATUS_UPDATE.equals(match.status())) {
+            // Only the deadline is synced from upstream; the user's own edits to the
+            // title/description, completion state and color are left alone.
+            match.existing().setDueDate(due);
+            taskRepository.save(match.existing());
+            return Outcome.UPDATED;
         }
+        if (STATUS_DUPLICATE.equals(match.status())) {
+            Task existing = match.existing();
+            if (key != null && existing.getImportKey() == null) {
+                existing.setImportKey(key);
+                taskRepository.save(existing);
+            }
+            return Outcome.DUPLICATE;
+        }
+
         Task task = new Task();
         task.setUser(user);
         task.setTitle(item.getTitle());
         task.setDescription(item.getDescription());
-        if (item.getDueDate() != null && !item.getDueDate().isBlank()) {
-            task.setDueDate(LocalDateTime.parse(item.getDueDate()));
-        }
+        task.setDueDate(due);
+        task.setImportKey(key);
         taskRepository.save(task);
+        return Outcome.CREATED;
     }
 
-    private void saveCourse(UnifiedImportItemDTO item, User user) {
-        if (item.getStart() == null || item.getEnd() == null) {
-            return;
+    private Outcome saveCourse(UnifiedImportItemDTO item, User user, Set<String> existingKeys) {
+        LocalDateTime start = parseStored(item.getStart());
+        LocalDateTime end = parseStored(item.getEnd());
+        if (start == null || end == null) {
+            return Outcome.INVALID;
+        }
+        // add() is false when this session is already stored (or repeats within the file).
+        if (!existingKeys.add(courseKey(item.getTitle(), start, end))) {
+            return Outcome.DUPLICATE;
         }
         CourseEvent event = new CourseEvent();
         event.setUser(user);
         event.setTitle(item.getTitle());
         event.setLocation(item.getLocation());
-        event.setStartTime(LocalDateTime.parse(item.getStart()));
-        event.setEndTime(LocalDateTime.parse(item.getEnd()));
+        event.setStartTime(start);
+        event.setEndTime(end);
         courseEventRepository.save(event);
+        return Outcome.CREATED;
     }
 
     private User requireUser(Long userId) {

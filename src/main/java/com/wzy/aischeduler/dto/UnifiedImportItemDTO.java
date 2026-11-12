@@ -1,5 +1,7 @@
 package com.wzy.aischeduler.dto;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
+
 public class UnifiedImportItemDTO {
     private String id;
     private String kind;
@@ -12,6 +14,14 @@ public class UnifiedImportItemDTO {
     private String location;
     private double confidence;
     private String notes;
+    // Stable id of the upstream item (Canvas assignment URL, ICS UID, ...). Server-side only.
+    private String importKey;
+    // Deadline / end time already passed when the preview was built.
+    private boolean past;
+    // How confirming this item would affect the user's data: new | update | duplicate.
+    private String status;
+    // For status == update: the deadline currently stored (UTC), so the UI can show old -> new.
+    private String existingDueDate;
 
     public String getId() { return id; }
     public void setId(String id) { this.id = id; }
@@ -45,4 +55,17 @@ public class UnifiedImportItemDTO {
 
     public String getNotes() { return notes; }
     public void setNotes(String notes) { this.notes = notes; }
+
+    @JsonIgnore
+    public String getImportKey() { return importKey; }
+    public void setImportKey(String importKey) { this.importKey = importKey; }
+
+    public boolean isPast() { return past; }
+    public void setPast(boolean past) { this.past = past; }
+
+    public String getStatus() { return status; }
+    public void setStatus(String status) { this.status = status; }
+
+    public String getExistingDueDate() { return existingDueDate; }
+    public void setExistingDueDate(String existingDueDate) { this.existingDueDate = existingDueDate; }
 }

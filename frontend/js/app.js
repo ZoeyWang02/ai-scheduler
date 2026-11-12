@@ -6,7 +6,7 @@ import { initBuddyWidget, isBuddyWidgetPinned, resetBuddyWidgetPosition, unpinBu
 import { appendMessage, checkAiStatus, sendMessage, syncSelectedTasks } from './chat.js';
 import { applyLanguage, toggleLanguage, translations } from './i18n.js';
 import { initReminders, toggleReminders } from './reminders.js';
-import { closeImportModal, closeModal, confirmUnifiedImport, courseApiUrl, courseToCalendarEvent, initCalendar, loadTasks, loadTimezones, onTimezoneChange, openEditModal, openImportModal, previewUnifiedImport, saveManualTask, taskApiUrl, taskToCalendarEvent, updateTaskColor } from './scheduler.js';
+import { closeImportModal, closeModal, confirmUnifiedImport, courseApiUrl, courseToCalendarEvent, initCalendar, loadTasks, loadTimezones, onTimezoneChange, openEditModal, openImportModal, previewUnifiedImport, saveManualTask, setImportSelection, taskApiUrl, taskToCalendarEvent, updateTaskColor } from './scheduler.js';
 import { applyServerPreferences, closeSettingsModal, openSettingsModal, saveSettings } from './settings.js';
 import { previewTheme, setTheme, toggleNightMode } from './theme.js';
 import { initTodayBand } from './todayBand.js';
@@ -188,6 +188,7 @@ Object.assign(window, {
     saveSettings,
     sendMessage,
     setAuthMode,
+    setImportSelection,
     signOut,
     startExternalAuth,
     submitCurrentAuth,

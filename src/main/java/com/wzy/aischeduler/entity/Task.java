@@ -6,6 +6,8 @@ import java.util.Map;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
+
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.FetchType;
@@ -51,6 +53,11 @@ public class Task {
     @Column(name = "color", length = 7)
     private String color;
 
+    // Internal bookkeeping for imports; never sent to or accepted from clients.
+    @JsonIgnore
+    @Column(name = "import_key", length = 512)
+    private String importKey;
+
     public Task() {}
 
     public Long getId() { return id; }
@@ -82,4 +89,7 @@ public class Task {
 
     public String getColor() { return color; }
     public void setColor(String color) { this.color = color; }
+
+    public String getImportKey() { return importKey; }
+    public void setImportKey(String importKey) { this.importKey = importKey; }
 }

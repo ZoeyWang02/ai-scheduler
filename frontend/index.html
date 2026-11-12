@@ -237,9 +237,15 @@
                 <input type="file" id="unifiedImportFile" accept=".json,.ics,application/json,text/calendar">
                 <button class="btn-sync" onclick="previewUnifiedImport()" data-i18n="previewImportBtn">Preview import</button>
                 <div id="importSummary" class="auth-hint"></div>
-                <div id="importPreviewList" style="display: flex; flex-direction: column; gap: 8px; max-height: 320px; overflow-y: auto;"></div>
+                <div id="importTools" class="import-tools" style="display:none;">
+                    <button type="button" class="import-tool-btn" onclick="setImportSelection('all')" data-i18n="importSelectAll">全选</button>
+                    <button type="button" class="import-tool-btn" onclick="setImportSelection('none')" data-i18n="importSelectNone">全不选</button>
+                    <button type="button" class="import-tool-btn" onclick="setImportSelection('suggested')" data-i18n="importSelectSuggested">恢复推荐</button>
+                    <span id="importSelectedCount" class="import-selected-count" aria-live="polite"></span>
+                </div>
+                <div id="importPreviewList"style="display: flex; flex-direction: column; gap: 8px; max-height: 320px; overflow-y: auto;"></div>
                 <div class="auth-actions">
-                    <button id="confirmImportBtn" onclick="confirmUnifiedImport()" style="display:none;" data-i18n="confirmImportBtn">Confirm selected</button>
+                    <button id="confirmImportBtn" class="btn-sync" onclick="confirmUnifiedImport()" style="display:none;" data-i18n="confirmImportBtn">Confirm selected</button>
                 </div>
             </div>
         </div>
