@@ -28,6 +28,7 @@ Open the app service → **Variables** → add:
 | `DB_USERNAME` | `${{Postgres.PGUSER}}` |
 | `DB_PASSWORD` | `${{Postgres.PGPASSWORD}}` |
 | `LLM_API_KEY` | your Groq key |
+| `LLM_MODEL` / `LLM_FALLBACK_MODEL` | *(optional)* defaults to `openai/gpt-oss-120b`, falling back to `openai/gpt-oss-20b` when the first is rate limited (Groq counts limits per model) |
 | `GOOGLE_CLIENT_ID` | your Google OAuth client id *(skip if not using Google login)* |
 | `GOOGLE_CLIENT_SECRET` | your Google OAuth client secret *(skip if not using)* |
 

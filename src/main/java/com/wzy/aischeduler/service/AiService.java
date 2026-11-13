@@ -1,15 +1,20 @@
 package com.wzy.aischeduler.service;
 
+import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
+import java.time.format.TextStyle;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
+import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.RestClient;
 
 import com.wzy.aischeduler.dto.LifestyleAnalysisDTO;
@@ -27,6 +32,10 @@ public class AiService {
 
     @Value("${llm.model}")
     private String model;
+
+    // Optional second model, used when the main one hits its rate limit (limits are per model).
+    @Value("${llm.fallback-model:}")
+    private String fallbackModel;
 
     @Autowired
     private TaskRepository taskRepository;
@@ -169,6 +178,24 @@ public class AiService {
     }
 
     /**
+     * Models are unreliable at working out which date "Friday" is, so the prompt spells it out:
+     * the next 14 days with their weekday names, today and tomorrow marked.
+     */
+    static String buildCalendarContext(LocalDate today, boolean isEn) {
+        Locale locale = isEn ? Locale.ENGLISH : Locale.SIMPLIFIED_CHINESE;
+        return IntStream.range(0, 14).mapToObj(i -> {
+            LocalDate day = today.plusDays(i);
+            String note = switch (i) {
+                case 0 -> isEn ? " (today)" : "（今天）";
+                case 1 -> isEn ? " (tomorrow)" : "（明天）";
+                case 2 -> isEn ? "" : "（后天）";
+                default -> "";
+            };
+            return day + " " + day.getDayOfWeek().getDisplayName(TextStyle.SHORT, locale) + note;
+        }).collect(Collectors.joining(isEn ? "; " : "；"));
+    }
+
+    /**
      * 核心双语聊天方法
      */
     public String chat(String userMessage, Long userId, String userTimezone, String lang) {
@@ -207,22 +234,33 @@ public class AiService {
                 "\n\n" + lifestyleContext +
                 (isEn ? "\n\nAvoid these busy times for the next two weeks:\n" : "\n\n以下是用户未来两周的课程/不可用时间，排计划必须避开这些时间：\n") + busyContext +
                 (isEn ? "\n\nCurrent time is: " : "\n\n现在的时间是：") + currentTime + "。" +
+                (isEn ? "\nCalendar for the next 14 days (use it to resolve weekdays and relative dates; a bare weekday such as \"Friday\" means the first such day in this list): "
+                      : "\n未来14天的日历（请用它换算星期几和相对日期；单说“周五”指此列表中第一个周五）：") +
+                buildCalendarContext(userCurrentTime.toLocalDate(), isEn) + "。" +
                 (isEn 
-                    ? "\nScheduling rules: All suggestedDate must be between 06:00 and 23:00 (user's local time). Do not overlap with busy times. If not enough data, prioritize 09:00-11:30, 14:00-17:00, 19:00-22:00." +
-                      "\nYou can add, reduce, or cancel tasks. To delete an existing task, return action=delete and provide the taskId." +
-                      "\nIf the user asks for a plan, append a raw JSON array at the end of your response, formatted exactly like this:\n"
-                    : "\n排期硬性规则：所有 suggestedDate 必须在用户选择时区的时间 06:00 到 23:00 之间；不能安排在课程时间内；如果没有足够数据，默认优先 09:00-11:30、14:00-17:00、19:00-22:00。" +
-                      "\n你可以增加计划，也可以删减/取消。删除旧任务请用 action=delete 并提供 taskId。" +
-                      "\n如果用户要求制定计划，请在回复最后提供一个纯 JSON 数组，格式严格如下：\n") +
+                    ? "\nFirst decide what the user wants, then answer accordingly:" +
+                      "\n(A) The user TELLS you about an event or commitment with a time (a meeting, class, exam, appointment, deadline), e.g. \"I have a meeting tomorrow at 8pm\". Record exactly that: one short confirmation sentence, then a JSON array with ONE add item for that event. step = the event in the user's own words, suggestedDate = the exact time they gave (work out \"tomorrow\", \"Friday\" etc. from the current time above), estimatedHours = the duration they gave, otherwise 1. The scheduling rules below do NOT apply to a time the user fixed, even at night. Do NOT add any other items and do NOT move existing tasks. If they gave no time, ask for it and return no JSON." +
+                      "\n(B) The user ASKS you to plan, schedule, break down or prioritize work. Make a plan that follows the scheduling rules: every suggestedDate between 06:00 and 23:00 (user's local time), never overlapping busy times; if there is not enough data prefer 09:00-11:30, 14:00-17:00, 19:00-22:00. You may add, reduce or cancel tasks; to delete an existing task return action=delete with its taskId." +
+                      "\n(C) Anything else (a question, chat, thanks): answer briefly in plain text with NO JSON." +
+                      "\nThe task list above is background only: never re-add, repeat or reschedule those tasks unless the user asks. Never invent tasks, courses or deliverables the user did not mention." +
+                      "\nFor every action=add item, \"description\" is one or two concrete sentences saying what to do, based on what the user said in this conversation. Never use generic filler." +
+                      "\nWhen you return JSON, append one raw JSON array at the end of your response, formatted exactly like this:\n"
+                    : "\n先判断用户想要什么，再回答：" +
+                      "\n（A）用户在告知一个带时间的事件或安排（会议、上课、考试、约见、截止时间），例如“我明天晚上8点有个会”。就只记录这件事：用一句话确认，然后返回只含一个 add 条目的 JSON 数组。step 用用户自己的说法，suggestedDate 为用户说的确切时间（“明天”“周五”等请根据上面的当前时间推算），estimatedHours 为用户说的时长，没说就填 1。用户指定的时间不受下面的排期规则限制，晚上也一样。不要添加任何其他条目，也不要改动已有任务。如果用户没说具体时间，就询问时间，不返回 JSON。" +
+                      "\n（B）用户请你制定计划、安排日程、拆解或排优先级。按排期规则做计划：所有 suggestedDate 必须在用户时区的 06:00 到 23:00 之间，不能与课程/不可用时间重叠；数据不足时默认优先 09:00-11:30、14:00-17:00、19:00-22:00。你可以增加计划，也可以删减/取消，删除旧任务请用 action=delete 并提供 taskId。" +
+                      "\n（C）其他情况（提问、闲聊、道谢）：用纯文字简短回答，不要返回 JSON。" +
+                      "\n上面的任务列表只是背景信息：除非用户要求，不要重复添加、重复安排或改期这些任务。不要编造用户没提到的任务、课程或作业。" +
+                      "\n每个 action=add 的条目都必须有 \"description\"：用一两句具体的话说明要做什么，内容来自用户在本次对话中说的话，不要写空泛的套话。" +
+                      "\n返回 JSON 时，请在回复最后附上一个纯 JSON 数组，格式严格如下：\n") +
                 "[\n" +
-                "  {\"action\": \"add\", \"step\": \"Task Name\", \"estimatedHours\": 2, \"suggestedDate\": \"2026-04-14T10:00:00\"},\n" +
+                "  {\"action\": \"add\", \"step\": \"Task Name\", \"description\": \"What to do in this step\", \"estimatedHours\": 2, \"suggestedDate\": \"2026-04-14T10:00:00\"},\n" +
                 "  {\"action\": \"delete\", \"taskId\": 12, \"step\": \"Old Task Name\", \"reason\": \"Conflict with sleep\"}\n" +
                 "]\n" +
                 "\n" + langInstruction; // 把语言强制指令放在最后，加重权重
 
         Map<String, Object> requestBody = Map.of(
                 "model", model,
-                "temperature", 0.7,
+                "temperature", 0.3,
                 "messages", List.of(
                         Map.of("role", "system", "content", systemPrompt),
                         Map.of("role", "user", "content", userMessage)
@@ -230,22 +268,39 @@ public class AiService {
         );
 
         try {
-            Map<String, Object> response = restClient.post()
-                    .uri(apiUrl)
-                    .header(HttpHeaders.AUTHORIZATION, "Bearer " + apiKey)
-                    .contentType(MediaType.APPLICATION_JSON)
-                    .body(requestBody)
-                    .retrieve()
-                    .body(Map.class);
-
-            List<Map<String, Object>> choices = (List<Map<String, Object>>) response.get("choices");
-            Map<String, Object> message = (Map<String, Object>) choices.get(0).get("message");
-            return (String) message.get("content");
-
+            try {
+                return postChat(requestBody);
+            } catch (HttpClientErrorException.TooManyRequests limited) {
+                // Free-tier limits are counted per model, so a second model has its own budget.
+                if (fallbackModel == null || fallbackModel.isBlank() || fallbackModel.equals(model)) throw limited;
+                System.err.println("AI rate limited on " + model + ", retrying with " + fallbackModel);
+                Map<String, Object> retryBody = new java.util.HashMap<>(requestBody);
+                retryBody.put("model", fallbackModel);
+                return postChat(retryBody);
+            }
+        } catch (HttpClientErrorException.TooManyRequests e) {
+            System.err.println("❌ AI 请求被限流: " + e.getMessage());
+            return isEn ? "I'm getting a lot of requests right now. Please try again in a few seconds."
+                        : "现在请求有点多，请几秒钟后再试一次。";
         } catch (Exception e) {
             System.err.println("❌ AI 请求失败: " + e.getMessage());
             // 🌟 7. 双语报错返回
             return isEn ? "Sorry, my brain is a bit scrambled right now (API Connection Failed)." : "对不起，我现在脑子有点乱（API连接失败）。";
         }
+    }
+
+    @SuppressWarnings("unchecked")
+    private String postChat(Map<String, Object> requestBody) {
+        Map<String, Object> response = restClient.post()
+                .uri(apiUrl)
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + apiKey)
+                .contentType(MediaType.APPLICATION_JSON)
+                .body(requestBody)
+                .retrieve()
+                .body(Map.class);
+
+        List<Map<String, Object>> choices = (List<Map<String, Object>>) response.get("choices");
+        Map<String, Object> message = (Map<String, Object>) choices.get(0).get("message");
+        return (String) message.get("content");
     }
 }

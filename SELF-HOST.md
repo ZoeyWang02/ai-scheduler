@@ -49,12 +49,12 @@ stable link use Option B.
 ### Option B — Named tunnel (stable URL, needs a domain on Cloudflare)
 ```bash
 cloudflared tunnel login
-cloudflared tunnel create nexus
-cloudflared tunnel route dns nexus study.yourdomain.com
+cloudflared tunnel create plantriz
+cloudflared tunnel route dns plantriz study.yourdomain.com
 ```
 Create `~/.cloudflared/config.yml`:
 ```yaml
-tunnel: nexus
+tunnel: plantriz
 credentials-file: /path/to/<tunnel-id>.json
 ingress:
   - hostname: study.yourdomain.com
@@ -63,7 +63,7 @@ ingress:
 ```
 Run it (or `cloudflared service install` to keep it running):
 ```bash
-cloudflared tunnel run nexus
+cloudflared tunnel run plantriz
 ```
 Then set `PUBLIC_URL=https://study.yourdomain.com` in `.env` and `docker compose up -d`.
 

@@ -31,7 +31,8 @@ services:
       DB_PASSWORD: ${POSTGRES_PASSWORD}
       LLM_API_KEY: ${LLM_API_KEY:-}
       LLM_API_URL: ${LLM_API_URL:-https://api.groq.com/openai/v1/chat/completions}
-      LLM_MODEL: ${LLM_MODEL:-llama-3.3-70b-versatile}
+      LLM_MODEL: ${LLM_MODEL:-openai/gpt-oss-120b}
+      LLM_FALLBACK_MODEL: ${LLM_FALLBACK_MODEL:-openai/gpt-oss-20b}
       GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
       GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
       # Same public HTTPS origin serves API + frontend + OAuth callback.

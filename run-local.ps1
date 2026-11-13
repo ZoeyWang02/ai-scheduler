@@ -62,7 +62,7 @@ if (-not $NoStopExisting) {
 }
 
 if ($Background) {
-    $envBlock = "set DB_URL=$env:DB_URL&& set DB_USERNAME=$env:DB_USERNAME&& set DB_PASSWORD=$env:DB_PASSWORD&& set SERVER_PORT=$env:SERVER_PORT&& set LLM_API_URL=$env:LLM_API_URL&& set LLM_API_KEY=$env:LLM_API_KEY&& set LLM_MODEL=$env:LLM_MODEL&& set GOOGLE_CLIENT_ID=$env:GOOGLE_CLIENT_ID&& set GOOGLE_CLIENT_SECRET=$env:GOOGLE_CLIENT_SECRET&& set GOOGLE_REDIRECT_URI=$env:GOOGLE_REDIRECT_URI"
+    $envBlock = "set DB_URL=$env:DB_URL&& set DB_USERNAME=$env:DB_USERNAME&& set DB_PASSWORD=$env:DB_PASSWORD&& set SERVER_PORT=$env:SERVER_PORT&& set LLM_API_URL=$env:LLM_API_URL&& set LLM_API_KEY=$env:LLM_API_KEY&& set LLM_MODEL=$env:LLM_MODEL&& set LLM_FALLBACK_MODEL=$env:LLM_FALLBACK_MODEL&& set GOOGLE_CLIENT_ID=$env:GOOGLE_CLIENT_ID&& set GOOGLE_CLIENT_SECRET=$env:GOOGLE_CLIENT_SECRET&& set GOOGLE_REDIRECT_URI=$env:GOOGLE_REDIRECT_URI"
     $cmd = "/c `"$envBlock&& mvn spring-boot:run > app.log 2> app.err.log`""
     $process = Start-Process -FilePath "cmd.exe" -ArgumentList $cmd -WorkingDirectory $ProjectRoot -WindowStyle Hidden -PassThru
     Set-Content -LiteralPath (Join-Path $ProjectRoot "app.pid") -Value $process.Id
