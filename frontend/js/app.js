@@ -3,13 +3,19 @@ import { closeLifePanelModal, getActiveAnalysisPeriod, loadLifestyleAnalysis, op
 import { closeAuthModal, consumeOAuthRedirect, getUserId, openAuthModal, renderAuthState, requestPasswordCode, setAuthMode, signOut, startExternalAuth, submitCurrentAuth } from './auth.js';
 import { closeBuddyStatusModal, openBuddyStatusModal, refreshBuddyState, syncAllBuddyAvatars } from './buddy.js';
 import { initBuddyWidget, isBuddyWidgetPinned, resetBuddyWidgetPosition, unpinBuddyWidget, updateChatWindowPosition } from './buddyWidget.js';
-import { appendMessage, checkAiStatus, sendMessage, syncSelectedTasks } from './chat.js';
+import { appendMessage, checkAiStatus, sendMessage, showChatList, syncSelectedTasks } from './chat.js';
 import { applyLanguage, toggleLanguage, translations } from './i18n.js';
 import { initReminders, toggleReminders } from './reminders.js';
 import { closeImportModal, closeModal, confirmUnifiedImport, courseApiUrl, courseToCalendarEvent, initCalendar, loadTasks, loadTimezones, onTimezoneChange, openEditModal, openImportModal, previewUnifiedImport, saveManualTask, setImportSelection, taskApiUrl, taskToCalendarEvent, updateTaskColor } from './scheduler.js';
 import { applyServerPreferences, closeSettingsModal, openSettingsModal, saveSettings } from './settings.js';
 import { previewTheme, setTheme, toggleNightMode } from './theme.js';
 import { initTodayBand } from './todayBand.js';
+import { initPixelIcons } from './pixelIcons.js';
+
+// Module scripts run after the document is parsed, so the static icon slots in
+// index.html (<span data-icon="...">) can be filled right away, before first paint
+// of the app logic below.
+initPixelIcons();
 
 document.addEventListener('DOMContentLoaded', function () {
             consumeOAuthRedirect();
@@ -58,19 +64,24 @@ document.addEventListener('DOMContentLoaded', function () {
                 const buddyStatusModal = document.getElementById('buddyStatusModal');
                 if (event.target == buddyStatusModal) closeBuddyStatusModal();
 
+                // Buttons inside the drawers (e.g. the translate toggle) rewrite their own innerHTML
+                // while handling the click, which detaches event.target before this handler runs and
+                // makes contains() report "outside". The composed path was fixed when the event was
+                // dispatched, so test membership against that instead.
+                const path = event.composedPath();
                 const taskDrawer = document.getElementById('taskDrawer');
                 const taskToggleBtn = document.getElementById('taskToggleBtn');
-                if (taskDrawer.classList.contains('open') && !taskDrawer.contains(event.target) && !taskToggleBtn.contains(event.target)) {
+                if (taskDrawer.classList.contains('open') && !path.includes(taskDrawer) && !path.includes(taskToggleBtn)) {
                     closeTaskDrawer();
                 }
                 const chatDrawer = document.getElementById('chatDrawer');
                 const chatToggleBtn = document.getElementById('chatToggleBtn');
-                if (chatDrawer.classList.contains('open') && !chatDrawer.contains(event.target) && !chatToggleBtn.contains(event.target)) {
+                if (chatDrawer.classList.contains('open') && !path.includes(chatDrawer) && !path.includes(chatToggleBtn)) {
                     closeChatDrawer();
                 }
 
                 const buddyWidget = document.getElementById('buddyWidget');
-                if (isBuddyWidgetPinned() && buddyWidget && !buddyWidget.contains(event.target)) {
+                if (isBuddyWidgetPinned() && buddyWidget && !path.includes(buddyWidget)) {
                     unpinBuddyWidget();
                 }
             };
@@ -96,7 +107,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
             syncAllBuddyAvatars();
             const currentLang = localStorage.getItem('appLang') || 'zh';
-            appendMessage('ai', translations[currentLang].aiWelcome);
+            appendMessage('ai', translations[currentLang].aiWelcome, false, { persist: false });
         });
 
 /* Drawers are overlays, not resizable panes — opening one never resizes or
@@ -134,8 +145,9 @@ export function openChatDrawer() {
             drawer.setAttribute('aria-hidden', 'false');
             document.getElementById('chatToggleBtn').setAttribute('aria-pressed', 'true');
             updateChatWindowPosition();
-            const input = document.getElementById('userInput');
-            if (input) input.focus();
+            // Opening the chat lands on the saved-conversation list; a conversation (or a new
+            // chat) is one click away.
+            showChatList();
         }
 
 export function closeChatDrawer() {
@@ -187,6 +199,7 @@ Object.assign(window, {
     saveManualTask,
     saveSettings,
     sendMessage,
+    showChatList,
     setAuthMode,
     setImportSelection,
     signOut,

@@ -6,6 +6,13 @@ import { getChatAvatarSrc } from './buddy.js';
 import { getAuthToken, getUserId, requireUser } from './auth.js';
 import { getActiveAnalysisPeriod, loadLifestyleAnalysis } from './analytics.js';
 import { loadTasks } from './scheduler.js';
+import { addMessage, deleteConversation, getConversation, loadConversations, updateMessage } from './chatHistory.js';
+
+import { pixelIcon } from './pixelIcons.js';
+
+/* The conversation currently shown in the chat window. null = a fresh chat that has no
+   saved record yet; it is created when the first message is stored. */
+let currentConversationId = null;
 
 export async function sendMessage() {
             const input = document.getElementById('userInput');
@@ -19,6 +26,8 @@ export async function sendMessage() {
 
             appendMessage('user', message);
             input.value = '';
+            // The reply belongs to this conversation even if the user navigates away while waiting.
+            const conversationId = currentConversationId;
 
             const messagesContainer = document.getElementById('messages');
             const loadingDiv = document.createElement('div');
@@ -27,6 +36,11 @@ export async function sendMessage() {
             loadingDiv.innerHTML = `<div class="typing-loader"><span></span><span></span><span></span></div>`;
             messagesContainer.appendChild(loadingDiv);
             messagesContainer.scrollTop = messagesContainer.scrollHeight;
+
+            const removeLoading = () => {
+                const placeholder = document.getElementById('ai-loading-placeholder');
+                if (placeholder) placeholder.remove();
+            };
 
             try {
                 const response = await fetch(`${API_BASE}/api/ai/chat`, {
@@ -43,25 +57,26 @@ export async function sendMessage() {
                 if (!response.ok) throw new Error('AI request failed: ' + response.status);
                 const data = await response.text();
 
-                // 馃専 璇锋眰缁撴潫锛岀珛鍒绘懅姣佸姞杞芥
-                if (document.getElementById('ai-loading-placeholder')) {
-                    document.getElementById('ai-loading-placeholder').remove();
-                }
+                // The request is done: remove the typing indicator right away.
+                removeLoading();
 
-                const jsonMatch = extractJsonArray(data);
-                if (jsonMatch) {
-                    const textBefore = data.split(jsonMatch)[0];
-                    if (textBefore.trim()) appendMessage('ai', textBefore);
-                    appendAiPlanner(jsonMatch);
-                } else {
-                    appendMessage('ai', data);
-                }
+                deliverAiReply(data, message, conversationId);
             } catch (e) {
-                if (document.getElementById('ai-loading-placeholder')) {
-                    document.getElementById('ai-loading-placeholder').remove();
-                }
-                appendMessage('ai', translations[lang].aiConnectFail, true);
-                input.value = message;
+                removeLoading();
+                appendMessage('ai', translations[lang].aiConnectFail, true, { conversationId });
+                if (conversationId === currentConversationId) input.value = message;
+            }
+        }
+
+// Shows (and stores) an AI reply: prose first, then the plan box when the reply carries a JSON plan.
+function deliverAiReply(data, request, conversationId) {
+            const jsonMatch = extractJsonArray(data);
+            if (jsonMatch) {
+                const textBefore = textBeforePlan(data, jsonMatch);
+                if (textBefore.trim()) appendMessage('ai', textBefore, false, { conversationId });
+                appendAiPlanner(jsonMatch, { request, conversationId });
+            } else {
+                appendMessage('ai', data, false, { conversationId });
             }
         }
 
@@ -69,12 +84,14 @@ export function triggerAutoAiPlanner(type) {
             const platform = type === 'canvas' ? 'Canvas' : 'Coursera';
             const lang = localStorage.getItem('appLang') || 'zh';
 
-            // 馃専 鏍稿績浼樺寲锛氬ぇ妯″瀷瑙﹀彂 Prompt 浼氭牴鎹綋鍓嶇郴缁熻瑷€鑷姩鍒囨崲涓嫳鐗堟湰
+            // The trigger prompt follows the current UI language.
             const autoMessage = lang === 'zh'
                 ? `我刚导入了最新的 ${platform} 作业数据。请结合我的作息和课程忙碌时间，找出未来一周最紧急的任务，拆成每天的 To-Do List，并推荐具体执行时间。`
                 : `I have just imported the latest ${platform} assignment data. Please evaluate the most urgent assignments over the next week based on my routine profile, decompose them into structured daily tasks, and recommend specific execution hours.`;
 
-            appendMessage('user', translations[lang].sysNotifyImport + platform + translations[lang].sysNotifyRequest);
+            const shownMessage = translations[lang].sysNotifyImport + platform + translations[lang].sysNotifyRequest;
+            appendMessage('user', shownMessage);
+            const conversationId = currentConversationId;
 
             fetch(`${API_BASE}/api/ai/chat`, {
                 method: 'POST',
@@ -88,36 +105,43 @@ export function triggerAutoAiPlanner(type) {
                 })
             })
                 .then(res => res.text())
-                .then(data => {
-                    const jsonMatch = extractJsonArray(data);
-                    if (jsonMatch) {
-                        const textBefore = data.split(jsonMatch)[0];
-                        if (textBefore.trim()) appendMessage('ai', textBefore);
-                        appendAiPlanner(jsonMatch);
-                    } else {
-                        appendMessage('ai', data);
-                    }
-                })
-                .catch(err => appendMessage('ai', translations[lang].aiAnalysisFail));
+                .then(data => deliverAiReply(data, shownMessage, conversationId))
+                .catch(err => appendMessage('ai', translations[lang].aiAnalysisFail, false, { conversationId }));
         }
 
-export function appendAiPlanner(jsonString) {
+/* Renders a plan box. `persist` stores it in the chat history; replaying a saved chat passes
+   persist:false plus the saved `applied` flag and message id. `request` is the user message the
+   plan answers, so the tasks it creates can say where they came from. */
+export function appendAiPlanner(jsonString, { request = '', conversationId, persist = true, applied = false, messageId = '' } = {}) {
             try {
                 const tasks = JSON.parse(jsonString);
+                const showNow = persist ? (conversationId === undefined || conversationId === currentConversationId) : true;
+                let storedId = messageId;
+                if (persist) {
+                    const saved = addMessage(conversationId === undefined ? currentConversationId : conversationId,
+                        { role: 'plan', plan: jsonString, request });
+                    if (conversationId === undefined || conversationId === currentConversationId) currentConversationId = saved.conversationId;
+                    storedId = saved.messageId;
+                }
+                if (!showNow) return;
+
                 const messagesContainer = document.getElementById('messages');
                 const plannerDiv = document.createElement('div');
                 const lang = localStorage.getItem('appLang') || 'zh';
                 const dict = translations[lang];
 
                 plannerDiv.className = 'ai-planner-box';
+                plannerDiv.dataset.messageId = storedId;
+                plannerDiv.dataset.request = request;
                 plannerDiv.innerHTML = `
             <div class="planner-header">${dict.plannerHeader}</div>
             ${tasks.map((t, i) => `
                 <div class="planner-item">
-                    <input type="checkbox" id="ai-step-${i}" checked
+                    <input type="checkbox" id="ai-step-${storedId}-${i}" checked
                            data-action="${escapeHtml(t.action || 'add')}" data-task-id="${escapeHtml(t.taskId || '')}"
-                           data-title="${escapeHtml(t.step || '')}" data-hours="${escapeHtml(t.estimatedHours || 1)}" data-date="${escapeHtml(t.suggestedDate || '')}">
-                    <label for="ai-step-${i}">
+                           data-title="${escapeHtml(t.step || '')}" data-hours="${escapeHtml(t.estimatedHours || 1)}" data-date="${escapeHtml(t.suggestedDate || '')}"
+                           data-description="${escapeHtml(t.description || '')}">
+                    <label for="ai-step-${storedId}-${i}">
                         ${escapeHtml((t.action || 'add') === 'delete' ? dict.deleteLabel : dict.addLabel)}: ${escapeHtml(t.step || dict.unnamedPlan)} ${(t.action || 'add') === 'delete' ? '' : `(${escapeHtml(t.estimatedHours || 1)}h)`}
                         <br><span>${escapeHtml((t.action || 'add') === 'delete' ? (t.reason || dict.aiSuggestCancel) : `${dict.suggestedExecution}${t.suggestedDate ? t.suggestedDate.replace('T', ' ') : dict.scheduleLater}`)}</span>
                     </label>
@@ -125,11 +149,23 @@ export function appendAiPlanner(jsonString) {
             `).join('')}
             <button class="sync-btn" onclick="syncSelectedTasks(this)">${dict.applyPlanBtn}</button>
         `;
+                if (applied) {
+                    const btn = plannerDiv.querySelector('.sync-btn');
+                    btn.innerText = dict.syncDone;
+                    btn.disabled = true;
+                    plannerDiv.querySelectorAll('input').forEach(input => { input.disabled = true; });
+                }
                 messagesContainer.appendChild(plannerDiv);
                 messagesContainer.scrollTop = messagesContainer.scrollHeight;
             } catch (e) {
                 console.error("解析 AI 计划失败", e);
             }
+        }
+
+// The prose before the plan JSON. Some models wrap the JSON in a ```json fence, and the
+// opening fence would otherwise show up as a stray line at the end of the chat bubble.
+export function textBeforePlan(data, jsonMatch) {
+            return data.split(jsonMatch)[0].replace(/`{3}[a-zA-Z]*\s*$/, '');
         }
 
 export function extractJsonArray(text) {
@@ -144,6 +180,20 @@ export function extractJsonArray(text) {
                 }
             }
             return null;
+        }
+
+/* The description saved on a task the AI created: what the step is (written by the AI from the
+   user's request), where it came from, and the time estimate. */
+export function buildTaskDescription({ description = '', request = '', hours = 1, lang = 'zh' }) {
+            const parts = [];
+            if (description.trim()) parts.push(description.trim());
+            const quoted = request.replace(/\s+/g, ' ').trim();
+            if (quoted) {
+                const short = quoted.length > 120 ? quoted.slice(0, 120) + '…' : quoted;
+                parts.push(lang === 'zh' ? `来自对话："${short}"` : `From chat: "${short}"`);
+            }
+            parts.push(lang === 'zh' ? `预计耗时 ${hours} 小时` : `Estimated: ${hours} h`);
+            return parts.join('\n');
         }
 
 export async function syncSelectedTasks(btn) {
@@ -164,7 +214,12 @@ export async function syncSelectedTasks(btn) {
                 }
                 const taskData = {
                     title: "[AI] " + item.dataset.title,
-                    description: lang === 'zh' ? `Nexus 生成子任务，预计耗时 ${item.dataset.hours} 小时` : `Subtask generated by Nexus, estimated duration: ${item.dataset.hours} hours`,
+                    description: buildTaskDescription({
+                        description: item.dataset.description,
+                        request: container.dataset.request || '',
+                        hours: item.dataset.hours,
+                        lang
+                    }),
                     dueDate: item.dataset.date || new Date().toISOString()
                 };
 
@@ -179,6 +234,9 @@ export async function syncSelectedTasks(btn) {
 
             btn.innerText = translations[lang].syncDone;
             btn.style.background = "#64748b";
+            if (container.dataset.messageId && currentConversationId) {
+                updateMessage(currentConversationId, container.dataset.messageId, { applied: true });
+            }
             state.calendar.refetchEvents();
             loadTasks(document.getElementById('timezoneSelect').value);
             loadLifestyleAnalysis(getActiveAnalysisPeriod(), document.getElementById('timezoneSelect').value);
@@ -203,9 +261,24 @@ export function renderChatStatus() {
             statusEl.classList.toggle('offline', !state.aiConfigured);
         }
 
-export function appendMessage(role, text, isError = false) {
+/* `persist` stores the message in the chat history (the welcome line is not stored).
+   `conversationId` targets the conversation a late reply belongs to: when the user has moved to
+   another view meanwhile, the message is only saved, not drawn. */
+export function appendMessage(role, text, isError = false, { persist = true, conversationId } = {}) {
+            let messageId = '';
+            if (persist) {
+                const target = conversationId === undefined ? currentConversationId : conversationId;
+                const saved = addMessage(target, { role, text, error: isError || undefined });
+                messageId = saved.messageId;
+                if (conversationId === undefined || conversationId === currentConversationId) {
+                    currentConversationId = saved.conversationId;
+                } else {
+                    return;
+                }
+            }
             const row = document.createElement('div');
             row.className = `message-row ${role}`;
+            row.dataset.messageId = messageId;
             if (role === 'ai') {
                 const avatar = document.createElement('img');
                 avatar.className = 'chat-avatar';
@@ -227,7 +300,7 @@ export function appendMessage(role, text, isError = false) {
                 translateBtn.type = 'button';
                 translateBtn.className = 'translate-btn';
                 translateBtn.title = translations[lang].translateTooltip;
-                translateBtn.innerText = '🌐';
+                translateBtn.innerHTML = pixelIcon('languages');
                 translateBtn.onclick = () => toggleTranslate(translateBtn, textSpan, text, 'chat');
                 div.appendChild(translateBtn);
             }
@@ -258,7 +331,7 @@ export async function toggleTranslate(btn, targetEl, originalText, mode) {
                 } else {
                     targetEl.innerText = originalText;
                 }
-                btn.innerText = '🌐';
+                btn.innerHTML = pixelIcon('languages');
                 btn.dataset.translated = '0';
                 return;
             }
@@ -272,12 +345,116 @@ export async function toggleTranslate(btn, targetEl, originalText, mode) {
                 } else {
                     targetEl.innerText = translated;
                 }
-                btn.innerText = '↺';
+                btn.innerHTML = pixelIcon('undo');
                 btn.dataset.translated = '1';
             } catch (e) {
                 showToast(lang === 'zh' ? '翻译失败' : 'Translation failed', 'error');
-                btn.innerText = '🌐';
+                btn.innerHTML = pixelIcon('languages');
             } finally {
                 btn.disabled = false;
             }
+        }
+
+/* ---- Chat history: a list of saved conversations, and the conversation itself ---- */
+
+function setChatView(view) {
+            const container = document.getElementById('chat-container');
+            if (container) container.dataset.view = view;
+        }
+
+function formatChatTime(timestamp, lang) {
+            const d = new Date(timestamp);
+            const sameDay = d.toDateString() === new Date().toDateString();
+            const pad = n => String(n).padStart(2, '0');
+            const clock = `${pad(d.getHours())}:${pad(d.getMinutes())}`;
+            return sameDay ? clock : `${d.getMonth() + 1}/${d.getDate()} ${clock}`;
+        }
+
+export function renderChatList() {
+            const lang = localStorage.getItem('appLang') || 'zh';
+            const dict = translations[lang];
+            const listEl = document.getElementById('chatList');
+            if (!listEl) return;
+            listEl.innerHTML = '';
+
+            const newBtn = document.createElement('button');
+            newBtn.type = 'button';
+            newBtn.className = 'chat-new-btn';
+            newBtn.innerHTML = pixelIcon('plus') + `<span>${escapeHtml(dict.chatNew)}</span>`;
+            newBtn.onclick = () => startNewChat();
+            listEl.appendChild(newBtn);
+
+            const conversations = loadConversations().sort((a, b) => b.updatedAt - a.updatedAt);
+            if (!conversations.length) {
+                const empty = document.createElement('p');
+                empty.className = 'chat-list-empty';
+                empty.textContent = dict.chatEmptyList;
+                listEl.appendChild(empty);
+                return;
+            }
+
+            conversations.forEach(conv => {
+                const row = document.createElement('div');
+                row.className = 'chat-list-row';
+
+                const open = document.createElement('button');
+                open.type = 'button';
+                open.className = 'chat-list-item';
+                const title = document.createElement('span');
+                title.className = 'chat-list-title';
+                title.textContent = conv.title || dict.chatUntitled;
+                const meta = document.createElement('span');
+                meta.className = 'chat-list-meta';
+                meta.textContent = `${formatChatTime(conv.updatedAt, lang)} · ${dict.chatMessageCount.replace('{n}', conv.messages.length)}`;
+                open.append(title, meta);
+                open.onclick = () => openConversation(conv.id);
+
+                const del = document.createElement('button');
+                del.type = 'button';
+                del.className = 'chat-list-delete';
+                del.title = dict.chatDelete;
+                del.setAttribute('aria-label', dict.chatDelete);
+                del.innerHTML = pixelIcon('trash');
+                del.onclick = () => {
+                    if (!window.confirm(dict.chatDeleteConfirm)) return;
+                    deleteConversation(conv.id);
+                    if (conv.id === currentConversationId) currentConversationId = null;
+                    renderChatList();
+                };
+
+                row.append(open, del);
+                listEl.appendChild(row);
+            });
+        }
+
+export function showChatList() {
+            renderChatList();
+            setChatView('list');
+        }
+
+export function startNewChat() {
+            currentConversationId = null;
+            document.getElementById('messages').innerHTML = '';
+            const lang = localStorage.getItem('appLang') || 'zh';
+            appendMessage('ai', translations[lang].aiWelcome, false, { persist: false });
+            setChatView('chat');
+            const input = document.getElementById('userInput');
+            if (input) input.focus();
+        }
+
+export function openConversation(id) {
+            const conversation = getConversation(id);
+            if (!conversation) { showChatList(); return; }
+            currentConversationId = id;
+            document.getElementById('messages').innerHTML = '';
+            conversation.messages.forEach(m => {
+                if (m.role === 'plan') {
+                    appendAiPlanner(m.plan, { request: m.request || '', persist: false, applied: !!m.applied, messageId: m.id });
+                } else {
+                    appendMessage(m.role, m.text, !!m.error, { persist: false });
+                }
+            });
+            setChatView('chat');
+            const input = document.getElementById('userInput');
+            if (input) input.focus();
         }

@@ -1,9 +1,17 @@
-export function showToast(message, type = 'info') {
+import { pixelIcon } from './pixelIcons.js';
+
+export function showToast(message, type = 'info', icon = null) {
             const container = document.getElementById('toast-container');
             if (!container) return;
             const toast = document.createElement('div');
             toast.className = `toast ${type}`;
-            toast.innerText = message;
+            if (icon) {
+                // Message goes in via textContent, so nothing in it is ever parsed as HTML.
+                toast.innerHTML = pixelIcon(icon) + '<span class="toast-text"></span>';
+                toast.querySelector('.toast-text').textContent = message;
+            } else {
+                toast.innerText = message;
+            }
             container.appendChild(toast);
 
             // 瑙﹀彂鍥炴祦瀹炵幇鍔ㄦ晥

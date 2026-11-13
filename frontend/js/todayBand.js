@@ -2,9 +2,10 @@ import { state } from './state.js';
 import { translations } from './i18n.js';
 import { escapeHtml } from './utils.js';
 import { translateDynamicText } from './analytics.js';
-import { getBuddyGreeting, getChatAvatarSrc, BUDDY_MOOD_EMOJI, STUDY_BUDDIES } from './buddy.js';
+import { getBuddyGreeting, getChatAvatarSrc, BUDDY_MOOD_ICON, STUDY_BUDDIES, buddyDisplayName } from './buddy.js';
 import { showModal, toggleTaskComplete } from './scheduler.js';
 
+import { pixelIcon } from './pixelIcons.js';
 /* "Today" info band above the calendar — surfaces the daily-execution signal
    (what's next), status (today / overdue counts + next-deadline countdown),
    and the Buddy motivation loop, all from already-cached data. Nothing imports
@@ -73,7 +74,7 @@ function computeMetrics() {
 function renderBuddyZone(dict) {
     const s = state.lastBuddyState;
     const buddyId = localStorage.getItem('studyBuddy') || 'junimo';
-    const buddyName = (STUDY_BUDDIES.find(b => b.id === buddyId) || STUDY_BUDDIES[0]).name;
+    const buddyName = buddyDisplayName(STUDY_BUDDIES.find(b => b.id === buddyId) || STUDY_BUDDIES[0]);
 
     const currentLang = localStorage.getItem('appLang') || 'zh';
     if (!cachedGreeting || cachedGreeting.lang !== currentLang) {
@@ -82,10 +83,10 @@ function renderBuddyZone(dict) {
 
     let idLine = `<span class="tb-buddy-name">${escapeHtml(buddyName)}</span>`;
     if (s) {
-        const moodEmoji = BUDDY_MOOD_EMOJI[s.mood] || BUDDY_MOOD_EMOJI.calm;
+        const moodIcon = pixelIcon(BUDDY_MOOD_ICON[s.mood] || 'mood-calm');
         const moodLabel = dict['buddyMood' + s.mood.charAt(0).toUpperCase() + s.mood.slice(1)] || s.mood;
         idLine += `<span class="tb-lv">Lv.${s.level}</span>`
-            + `<span class="tb-mood">${moodEmoji} ${escapeHtml(moodLabel)}</span>`;
+            + `<span class="tb-mood">${moodIcon} ${escapeHtml(moodLabel)}</span>`;
     }
 
     return `
@@ -120,7 +121,8 @@ function renderAgendaZone(dict, metrics) {
     if (!agenda.length) {
         const empty = document.createElement('div');
         empty.className = 'tb-empty';
-        empty.textContent = dict.tbEmpty;
+        empty.innerHTML = pixelIcon('sprout') + '<span class="tb-empty-text"></span>';
+        empty.querySelector('.tb-empty-text').textContent = dict.tbEmpty;
         list.appendChild(empty);
     } else {
         const lang = localStorage.getItem('appLang') || 'zh';

@@ -8,6 +8,7 @@ import { addAuthParams, getAuthToken, getUserId, requireUser } from './auth.js';
 import { refreshUserScopedViews } from './app.js';
 import { toggleTranslate, triggerAutoAiPlanner } from './chat.js';
 
+import { pixelIcon } from './pixelIcons.js';
 export function taskApiUrl(timezone) {
             const params = new URLSearchParams({ timezone });
             return `${API_BASE}/api/tasks?${addAuthParams(params).toString()}`;
@@ -108,7 +109,7 @@ export function courseToCalendarEvent(event) {
                 end: endIso,
                 extendedProps: {
                     courseId: event.id, // 涓撻棬鐨勮绋?ID 鏍囪
-                    description: event.location || '课程地点/时间',
+                    description: event.location || '',
                     formattedDate: `${(event.start || '').replace('T', ' ')} - ${(event.end || '').includes('T') ? event.end.split('T')[1] : (event.end || '')}`
                 },
                 color: '#16b99a'
@@ -131,7 +132,7 @@ export function initCalendar(timezone) {
                 ],
                 // ... 淇濇寔 eventDidMount 鐨?tippy 鎻愮ず璇嶄笉鍙?...
                 eventDidMount: function (info) {
-                    const desc = info.event.extendedProps.description || "暂无详情";
+                    const desc = info.event.extendedProps.description || translations[localStorage.getItem('appLang') || 'zh'].noDetails;
                     tippy(info.el, {
                         content: `<div style="font-family: Inter; padding: 4px;">
                                 <strong style="font-size: 13px;">${escapeHtml(info.event.title)}</strong><br>
@@ -375,7 +376,7 @@ export async function loadTasks(timezone) {
                 document.dispatchEvent(new Event('nexus:today-refresh'));
 
                 if (!tasks.length) {
-                    taskListEl.innerHTML = `<div class="empty-state-box"><div class="empty-state-icon">🎯</div><div style="font-size: 13px; font-weight: 500;">${escapeHtml(translations[lang].noTasks)}</div></div>`;
+                    taskListEl.innerHTML = `<div class="empty-state-box"><div class="empty-state-icon">${pixelIcon('sprout', { size: 48 })}</div><div style="font-size: 13px; font-weight: 500;">${escapeHtml(translations[lang].noTasks)}</div></div>`;
                     return;
                 }
 
@@ -408,7 +409,7 @@ export async function loadTasks(timezone) {
                     translateBtn.type = 'button';
                     translateBtn.className = 'translate-btn';
                     translateBtn.title = translations[lang].translateTooltip;
-                    translateBtn.innerText = '🌐';
+                    translateBtn.innerHTML = pixelIcon('languages');
                     translateBtn.onclick = (e) => {
                         e.stopPropagation();
                         toggleTranslate(translateBtn, titleEl, transTitle, 'plain');
@@ -505,7 +506,7 @@ export function renderImportPreview(preview) {
             if (!items.length) {
                 summary.innerText = '';
                 tools.style.display = 'none';
-                list.innerHTML = `<div class="empty-state-box"><div class="empty-state-icon">📭</div><div>${escapeHtml(dict.importNoItems)}</div></div>`;
+                list.innerHTML = `<div class="empty-state-box"><div class="empty-state-icon">${pixelIcon('mailbox', { size: 48 })}</div><div>${escapeHtml(dict.importNoItems)}</div></div>`;
                 document.getElementById('confirmImportBtn').style.display = 'none';
                 return;
             }

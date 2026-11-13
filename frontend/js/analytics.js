@@ -4,6 +4,7 @@ import { translations } from './i18n.js';
 import { addAuthParams } from './auth.js';
 import { escapeHtml } from './utils.js';
 
+import { pixelIcon } from './pixelIcons.js';
 export function openLifePanelModal() {
             document.getElementById('lifePanelModal').style.display = 'block';
         }
@@ -37,8 +38,9 @@ export function translateDynamicText(text, type, lang) {
                 if (lang === 'en' && text.startsWith('[智能规划]')) return text.replace('[智能规划]', '[AI]');
                 if (lang === 'zh' && text.startsWith('[AI]')) return text.replace('[AI]', '[智能规划]');
             } else if (type === 'desc') {
-                if (lang === 'en') return text.replace(/Nexus 生成子任务，预计耗时 ([\d.]+) 小时/, 'Nexus subtask, estimated: $1 hrs');
-                if (lang === 'zh') return text.replace(/Nexus subtask, estimated: ([\d.]+) hrs/, 'Nexus 生成子任务，预计耗时 $1 小时');
+                // Tasks saved before the rename say "Nexus", so both names are matched.
+                if (lang === 'en') return text.replace(/(?:Nexus|PlanTriz) 生成子任务，预计耗时 ([\d.]+) 小时/, 'PlanTriz subtask, estimated: $1 hrs');
+                if (lang === 'zh') return text.replace(/(?:Nexus|PlanTriz) subtask, estimated: ([\d.]+) hrs/, 'PlanTriz 生成子任务，预计耗时 $1 小时');
             }
             return text;
         }
@@ -89,7 +91,7 @@ export async function loadLifestyleAnalysis(period, timezone, isSilent = false) 
                 if (!hourly.length || Math.max(...hourly.map(item => item.hours || 0)) === 0) {
                     barsEl.innerHTML = `
                         <div class="empty-state-box" style="width: 100%; grid-column: span 24;">
-                            <div class="empty-state-icon" style="font-size:24px;">📊</div>
+                            <div class="empty-state-icon">${pixelIcon('chart-bar-big')}</div>
                             <div style="font-size: 11px;">${lang === 'zh' ? '暂无统计数据。' : 'No data tracked yet.'}</div>
                         </div>`;
                     return;

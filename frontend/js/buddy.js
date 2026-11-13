@@ -4,15 +4,21 @@ import { translations } from './i18n.js';
 import { escapeHtml, showToast } from './utils.js';
 import { getAuthToken, getUserId } from './auth.js';
 
+import { pixelIcon } from './pixelIcons.js';
 export const STUDY_BUDDIES = [
             { id: 'junimo', name: 'Junimo' },
-            { id: 'chicken', name: '鸡' },
-            { id: 'duck', name: '鸭' },
-            { id: 'rabbit', name: '兔子' },
-            { id: 'slime', name: '史莱姆' },
-            { id: 'farmer-a', name: '农场少年' },
-            { id: 'farmer-b', name: '农场少女' },
+            { id: 'chicken', name: '鸡', nameEn: 'Chicken' },
+            { id: 'duck', name: '鸭', nameEn: 'Duck' },
+            { id: 'rabbit', name: '兔子', nameEn: 'Rabbit' },
+            { id: 'slime', name: '史莱姆', nameEn: 'Slime' },
+            { id: 'farmer-a', name: '农场少年', nameEn: 'Farm Boy' },
+            { id: 'farmer-b', name: '农场少女', nameEn: 'Farm Girl' },
         ];
+
+// The display name in the current UI language (a buddy without nameEn, e.g. Junimo, keeps its name).
+export function buddyDisplayName(buddy) {
+            return (localStorage.getItem('appLang') || 'zh') === 'zh' ? buddy.name : (buddy.nameEn || buddy.name);
+        }
 
 export function getChatAvatarSrc() {
             const id = localStorage.getItem('studyBuddy') || 'junimo';
@@ -32,18 +38,18 @@ export function renderAvatarPicker() {
                 };
                 const img = document.createElement('img');
                 img.src = `/images/${buddy.id}-avatar.svg`;
-                img.alt = buddy.name;
+                img.alt = buddyDisplayName(buddy);
                 const label = document.createElement('span');
-                label.innerText = buddy.name;
+                label.innerText = buddyDisplayName(buddy);
                 option.appendChild(img);
                 option.appendChild(label);
                 picker.appendChild(option);
             });
         }
 
-export const BUDDY_STAGE_EMOJI = { hatchling: '🥚', growing: '🐣', mature: '🐥' };
+export const BUDDY_STAGE_ICON = { hatchling: 'egg', growing: 'hatching', mature: 'chick' };
 
-export const BUDDY_MOOD_EMOJI = { calm: '😌', happy: '😊', excited: '🤩' };
+export const BUDDY_MOOD_ICON = { calm: 'mood-calm', happy: 'mood-happy', excited: 'mood-excited' };
 
 export async function refreshBuddyState() {
             if (!getUserId()) {
@@ -77,8 +83,8 @@ function buildBuddyStatCardHtml() {
             }
 
             const s = state.lastBuddyState;
-            const stageEmoji = BUDDY_STAGE_EMOJI[s.stage] || '🥚';
-            const moodEmoji = BUDDY_MOOD_EMOJI[s.mood] || '😌';
+            const stageIcon = pixelIcon(BUDDY_STAGE_ICON[s.stage] || 'egg');
+            const moodIcon = pixelIcon(BUDDY_MOOD_ICON[s.mood] || 'mood-calm');
             const stageLabelKey = 'buddyStage' + s.stage.charAt(0).toUpperCase() + s.stage.slice(1);
             const moodLabelKey = 'buddyMood' + s.mood.charAt(0).toUpperCase() + s.mood.slice(1);
             const stageLabel = dict[stageLabelKey] || s.stage;
@@ -88,7 +94,7 @@ function buildBuddyStatCardHtml() {
                 ? dict.buddyMaxStage
                 : `${s.xpToNextStage} XP → ${dict[('buddyStage' + (s.stage === 'hatchling' ? 'Growing' : 'Mature'))] || ''}`;
             const buddyId = localStorage.getItem('studyBuddy') || 'junimo';
-            const buddyName = (STUDY_BUDDIES.find(b => b.id === buddyId) || STUDY_BUDDIES[0]).name;
+            const buddyName = buddyDisplayName(STUDY_BUDDIES.find(b => b.id === buddyId) || STUDY_BUDDIES[0]);
             // Pips are a chunkier, game-HUD-style restatement of the same level
             // progress the XP bar already shows (5 segments, 20% each) — not a
             // separate data point, just a second visual register for it.
@@ -101,7 +107,7 @@ function buildBuddyStatCardHtml() {
                     <div class="buddy-card-avatar-box"><img src="${getChatAvatarSrc()}" alt=""></div>
                     <div class="buddy-card-identity">
                         <p class="buddy-card-name">${escapeHtml(buddyName)}</p>
-                        <p class="buddy-card-stage">${stageEmoji} ${escapeHtml(stageLabel)}</p>
+                        <p class="buddy-card-stage">${stageIcon} ${escapeHtml(stageLabel)}</p>
                     </div>
                     <div class="buddy-level-badge">Lv. ${s.level}</div>
                 </div>
@@ -113,7 +119,7 @@ function buildBuddyStatCardHtml() {
                     <div class="buddy-card-pips">${pipsHtml}</div>
                 </div>
                 <div class="buddy-status-meta">
-                    <span class="mood">${moodEmoji} ${escapeHtml(moodLabel)}</span>
+                    <span class="mood">${moodIcon} ${escapeHtml(moodLabel)}</span>
                     <span class="buddy-completed-count">${dict.buddyTasksCompletedLabel}: ${s.totalTasksCompleted}</span>
                 </div>
                 <div class="buddy-status-substage">${escapeHtml(substage)}</div>
@@ -151,7 +157,7 @@ export function renderBuddyMoodBadge() {
                 badge.style.display = 'none';
                 return;
             }
-            badge.textContent = BUDDY_MOOD_EMOJI[state.lastBuddyState.mood] || '';
+            badge.innerHTML = pixelIcon(BUDDY_MOOD_ICON[state.lastBuddyState.mood] || 'mood-calm');
             badge.style.display = 'block';
         }
 
@@ -164,6 +170,8 @@ export function syncAllBuddyAvatars() {
             });
             const widgetAvatar = document.getElementById('buddyWidgetAvatar');
             if (widgetAvatar) widgetAvatar.src = src;
+            // The Today band (top-left avatar + name) is rendered from the saved buddy too.
+            document.dispatchEvent(new Event('nexus:today-refresh'));
         }
 
 export function getBuddyGreeting() {
@@ -172,10 +180,9 @@ export function getBuddyGreeting() {
             const hour = new Date().getHours();
             const salutation = hour < 12 ? dict.greetingMorning : hour < 18 ? dict.greetingAfternoon : dict.greetingEvening;
             const mood = state.lastBuddyState ? state.lastBuddyState.mood : 'calm';
-            const moodEmoji = BUDDY_MOOD_EMOJI[mood] || BUDDY_MOOD_EMOJI.calm;
             const lines = dict['buddyLines' + (mood.charAt(0).toUpperCase() + mood.slice(1))] || dict.buddyLinesCalm;
             const line = lines[Math.floor(Math.random() * lines.length)];
-            return `${salutation} ${moodEmoji} ${line}`;
+            return `${salutation} ${line}`;
         }
 
 export function pulseBuddyAvatar() {
@@ -190,10 +197,10 @@ export function celebrateBuddyProgress(buddyState) {
             const lang = localStorage.getItem('appLang') || 'zh';
             const dict = translations[lang];
             if (buddyState.justAdvancedStage) {
-                showToast(dict.buddyStageUpToast, 'success');
+                showToast(dict.buddyStageUpToast, 'success', 'sparkle');
                 pulseBuddyAvatar();
             } else if (buddyState.justLeveledUp) {
-                showToast(dict.buddyLevelUpToast.replace('{level}', buddyState.level), 'success');
+                showToast(dict.buddyLevelUpToast.replace('{level}', buddyState.level), 'success', 'star');
                 pulseBuddyAvatar();
             }
         }

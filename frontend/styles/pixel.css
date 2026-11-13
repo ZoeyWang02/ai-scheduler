@@ -1,0 +1,713 @@
+/* ==========================================================================
+   Pixel layer — turns both Stardew themes (day + night) into true pixel art.
+   Loaded LAST, so it wins over components.css without editing that file.
+
+   Ground rules this file follows:
+   - 1 "game pixel" = 1 CSS px. Frames and borders are 2px steps.
+   - Text uses a pixel font at integer multiples of its 12px grid (12 / 24 / 36);
+     any other size smears the pixels, so tokens below only use those.
+   - No border-radius, no gradients, no blur: depth comes from hard offsets and
+     stepped ("notched") corners built from box-shadow.
+   - Sprites/avatars are drawn with crisp edges and shown at integer scales.
+   ========================================================================== */
+
+@font-face {
+    /* Fusion Pixel 12px, proportional, Simplified Chinese (OFL 1.1 — see fonts/OFL.txt) */
+    font-family: "Fusion Pixel";
+    src: url("../fonts/fusion-pixel-12px-proportional-zh_hans.otf.woff2") format("woff2");
+    font-weight: 400;
+    font-style: normal;
+    font-display: swap;
+}
+
+/* --- Per-theme frame/scrollbar colors (day vs night differ, so not shared) --- */
+[data-theme="stardew"] {
+    --frame-outer: var(--soil-900);
+    --frame-inner: var(--wheat-bevel);
+    --scroll-track: #e8d9b0;
+    --scroll-thumb: var(--wheat-bevel);
+}
+
+[data-theme="stardew-night"] {
+    --frame-outer: #10131f;
+    --frame-inner: #4a3d28;
+    --scroll-track: #161a2c;
+    --scroll-thumb: #6b5a3a;
+}
+
+[data-theme^="stardew"] {
+    --font-ui: "Fusion Pixel", "Microsoft YaHei", "PingFang SC", sans-serif;
+
+    /* Type scale = whole multiples of the font's 12px grid. Hierarchy comes from
+       the 12 -> 24 jump plus color, not from in-between sizes. */
+    --text-caption: 12px;
+    --text-label: 12px;
+    --text-body: 12px;
+    --text-title: 24px;
+    --text-heading: 24px;
+    --text-display: 24px;
+    --text-display-xl: 36px;
+
+    /* Square corners everywhere. */
+    --radius-xs: 0;
+    --radius-sm: 0;
+    --radius-md: 0;
+    --radius-lg: 0;
+    --radius-xl: 0;
+    --radius-pill: 0;
+
+    /* The wood frame: two 2px rings (light bevel inside, dark outline outside) with
+       the corners left out, which reads as a stepped pixel corner. Used by every
+       panel via `box-shadow: var(--panel-frame)`, so changing it here reskins all. */
+    --panel-frame:
+        0 -2px 0 0 var(--frame-inner), 0 2px 0 0 var(--frame-inner),
+        -2px 0 0 0 var(--frame-inner), 2px 0 0 0 var(--frame-inner),
+        0 -4px 0 0 var(--frame-outer), 0 4px 0 0 var(--frame-outer),
+        -4px 0 0 0 var(--frame-outer), 4px 0 0 0 var(--frame-outer);
+}
+
+/* --- Text ------------------------------------------------------------------ */
+html[data-theme^="stardew"],
+[data-theme^="stardew"] body {
+    -webkit-font-smoothing: none;
+    font-smooth: never;
+    text-rendering: optimizeSpeed;
+}
+
+/* One font for everything, including form controls, FullCalendar and tooltips.
+   !important because components.css names other families in many places. */
+[data-theme^="stardew"] *:not(.fc-icon),
+[data-theme^="stardew"] *:not(.fc-icon)::before,
+[data-theme^="stardew"] *:not(.fc-icon)::after {
+    font-family: var(--font-ui) !important;
+    /* The font has no bold/italic: browser-synthesized ones smear the pixel grid. */
+    font-synthesis: none;
+    /* Fractional letter-spacing lands between pixels. */
+    letter-spacing: 0 !important;
+}
+
+/* Emphasis in a one-weight pixel font: draw the glyph twice, one pixel apart. */
+[data-theme^="stardew"] :is(strong, b, th, .panel-title, .tb-agenda-title, .tb-buddy-name,
+        .import-preview-title, .buddy-card-name, .metric-value, .sidebar-section-label) {
+    text-shadow: 1px 0 0 currentColor;
+}
+
+/* --- Images ---------------------------------------------------------------- */
+[data-theme^="stardew"] img,
+[data-theme^="stardew"] canvas,
+[data-theme^="stardew"] svg {
+    image-rendering: pixelated;
+}
+
+/* --- Scrollbars: square, framed, 12px (a 6px-wide thumb at 2x the pixel grid) -- */
+[data-theme^="stardew"] ::-webkit-scrollbar {
+    width: 12px;
+    height: 12px;
+}
+
+[data-theme^="stardew"] ::-webkit-scrollbar-track {
+    background: var(--scroll-track);
+    border-radius: 0;
+}
+
+[data-theme^="stardew"] ::-webkit-scrollbar-thumb {
+    background: var(--scroll-thumb);
+    border: 2px solid var(--frame-outer);
+    border-radius: 0;
+}
+
+[data-theme^="stardew"] ::-webkit-scrollbar-corner {
+    background: var(--scroll-track);
+}
+
+/* components.css pins the calendar title to a display serif with !important. */
+[data-theme^="stardew"] .fc-toolbar-title {
+    font-family: var(--font-ui) !important;
+}
+
+/* --- Calendar arrows: FullCalendar draws them with an icon font (smooth vectors).
+   Replace with a 6x6 pixel chevron shown at 2x, so each pixel is 2 CSS px. ------- */
+[data-theme^="stardew"] .fc .fc-icon-chevron-left::before,
+[data-theme^="stardew"] .fc .fc-icon-chevron-right::before {
+    content: "";
+    display: block;
+    width: 12px;
+    height: 12px;
+    margin: 0 auto;
+    background: currentColor;
+    -webkit-mask-size: 100% 100%;
+    mask-size: 100% 100%;
+    -webkit-mask-repeat: no-repeat;
+    mask-repeat: no-repeat;
+}
+
+[data-theme^="stardew"] .fc .fc-icon-chevron-left::before {
+    -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 6 6' shape-rendering='crispEdges'%3E%3Cpath d='M4 0h1v1H4zM3 1h1v1H3zM2 2h1v2H2zM3 4h1v1H3zM4 5h1v1H4z'/%3E%3C/svg%3E");
+    mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 6 6' shape-rendering='crispEdges'%3E%3Cpath d='M4 0h1v1H4zM3 1h1v1H3zM2 2h1v2H2zM3 4h1v1H3zM4 5h1v1H4z'/%3E%3C/svg%3E");
+}
+
+[data-theme^="stardew"] .fc .fc-icon-chevron-right::before {
+    -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 6 6' shape-rendering='crispEdges'%3E%3Cpath d='M1 0h1v1H1zM2 1h1v1H2zM3 2h1v2H3zM2 4h1v1H2zM1 5h1v1H1z'/%3E%3C/svg%3E");
+    mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 6 6' shape-rendering='crispEdges'%3E%3Cpath d='M1 0h1v1H1zM2 1h1v1H2zM3 2h1v2H3zM2 4h1v1H2zM1 5h1v1H1z'/%3E%3C/svg%3E");
+}
+
+/* ==========================================================================
+   Icons — see js/pixelIcons.js. Glyphs are 24px, sprites 16/32/48px (whole
+   multiples of their grids), always as inline <svg> with crisp edges.
+   ========================================================================== */
+.px-ico {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    line-height: 0;
+}
+
+.px-icon {
+    display: block;
+    flex-shrink: 0;
+}
+
+/* Icon + label pairs (settings rows). */
+label:has(> .px-ico-label) {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+}
+
+/* The ✕ is now an icon, not a font glyph: size it by its box. */
+[data-theme^="stardew"] .close-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    line-height: 0;
+    font-size: 0;
+}
+
+/* Study Buddy flyout rows, stat card and today band: icon sits beside the text. */
+[data-theme^="stardew"] .buddy-widget-flyout-btn {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.buddy-status-meta .mood .px-icon,
+.buddy-card-stage .px-icon,
+.tb-mood .px-icon {
+    display: inline-block;
+    vertical-align: middle;
+    margin-right: 4px;
+}
+
+.tb-empty {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.toast .px-icon {
+    display: inline-block;
+    vertical-align: middle;
+    margin-right: 8px;
+}
+
+.translate-btn .px-icon {
+    display: block;
+}
+
+.empty-state-icon {
+    display: flex;
+    justify-content: center;
+    line-height: 0;
+    margin-bottom: 8px;
+}
+
+/* ==========================================================================
+   Surfaces: background tile, buttons, inputs, checkboxes, calendar grid.
+   ========================================================================== */
+
+/* A 16x16 speckle tile shown at 2x (each speck = a 2px game pixel). Replaces the
+   diagonal repeating-linear-gradient texture, whose slanted lines are anti-aliased. */
+[data-theme="stardew"] {
+    --bg-tile: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' shape-rendering='crispEdges'%3E%3Cg fill='rgb(139,90,43)' fill-opacity='.13'%3E%3Crect x='2' y='3' width='1' height='1'/%3E%3Crect x='11' y='1' width='1' height='1'/%3E%3Crect x='7' y='9' width='1' height='1'/%3E%3Crect x='14' y='12' width='1' height='1'/%3E%3Crect x='4' y='13' width='1' height='1'/%3E%3C/g%3E%3Cg fill='rgb(255,255,255)' fill-opacity='.35'%3E%3Crect x='9' y='4' width='1' height='1'/%3E%3Crect x='1' y='10' width='1' height='1'/%3E%3Crect x='12' y='7' width='1' height='1'/%3E%3Crect x='6' y='14' width='1' height='1'/%3E%3C/g%3E%3C/svg%3E");
+}
+
+[data-theme="stardew-night"] {
+    --bg-tile: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' shape-rendering='crispEdges'%3E%3Cg fill='rgb(0,0,0)' fill-opacity='.22'%3E%3Crect x='2' y='3' width='1' height='1'/%3E%3Crect x='11' y='1' width='1' height='1'/%3E%3Crect x='7' y='9' width='1' height='1'/%3E%3Crect x='14' y='12' width='1' height='1'/%3E%3Crect x='4' y='13' width='1' height='1'/%3E%3C/g%3E%3Cg fill='rgb(245,201,90)' fill-opacity='.30'%3E%3Crect x='9' y='4' width='1' height='1'/%3E%3Crect x='1' y='10' width='1' height='1'/%3E%3C/g%3E%3Cg fill='rgb(236,224,196)' fill-opacity='.22'%3E%3Crect x='12' y='7' width='1' height='1'/%3E%3Crect x='6' y='14' width='1' height='1'/%3E%3C/g%3E%3C/svg%3E");
+}
+
+[data-theme^="stardew"] body,
+[data-theme^="stardew"] #calendar-container {
+    background-image: var(--bg-tile) !important;
+    background-size: 32px 32px !important;
+    image-rendering: pixelated;
+}
+
+/* --- Buttons: stepped 2px outline + a light/dark inner bevel; pressing sinks it. --- */
+[data-theme^="stardew"] {
+    --btn-notch:
+        0 -2px 0 0 var(--frame-outer), 0 2px 0 0 var(--frame-outer),
+        -2px 0 0 0 var(--frame-outer), 2px 0 0 0 var(--frame-outer);
+    --btn-frame:
+        inset 2px 2px 0 0 rgba(255, 255, 255, 0.28), inset -2px -2px 0 0 rgba(0, 0, 0, 0.28),
+        var(--btn-notch);
+    --btn-frame-pressed:
+        inset 2px 2px 0 0 rgba(0, 0, 0, 0.32), var(--btn-notch);
+}
+
+[data-theme^="stardew"] button,
+[data-theme^="stardew"] .btn-sync,
+[data-theme^="stardew"] .top-auth-button {
+    border-radius: 0 !important;
+    box-shadow: var(--btn-frame) !important;
+}
+
+[data-theme^="stardew"] button:active,
+[data-theme^="stardew"] .btn-sync:active,
+[data-theme^="stardew"] .top-auth-button:active {
+    box-shadow: var(--btn-frame-pressed) !important;
+    transform: translateY(2px);
+}
+
+/* Left rail: icons sit flat on the rail; only hover / the open panel get a frame. */
+[data-theme^="stardew"] .rail-btn {
+    box-shadow: none !important;
+}
+
+[data-theme^="stardew"] .rail-btn:hover,
+[data-theme^="stardew"] .rail-btn[aria-pressed="true"] {
+    box-shadow: var(--panel-frame) !important;
+}
+
+/* The language switch is a text button on the rail: make it read like its neighbours. */
+[data-theme^="stardew"] #langToggleBtn {
+    background: transparent !important;
+    border: 0 !important;
+    color: var(--rail-icon) !important;
+}
+
+[data-theme^="stardew"] #langToggleBtn:hover {
+    background: var(--wheat-50) !important;
+    color: var(--soil-900) !important;
+}
+
+/* --- Inputs: 2px dark border with a small inset shadow (a "sunken slot"). --- */
+[data-theme^="stardew"] :is(input:not([type="checkbox"]):not([type="radio"]):not([type="file"]):not([type="color"]), textarea, select, .custom-input) {
+    border: 2px solid var(--frame-outer) !important;
+    border-radius: 0 !important;
+    box-shadow: inset 2px 2px 0 0 rgba(0, 0, 0, 0.18) !important;
+}
+
+/* --- Checkboxes: a square slot; a 6x4 pixel check mark when ticked. --- */
+/* !important throughout: components.css has a catch-all `input { background:... !important;
+   border:... !important }` whose shorthand would otherwise wipe the check-mark image. */
+[data-theme^="stardew"] input[type="checkbox"]:not(.task-complete-checkbox) {
+    appearance: none;
+    -webkit-appearance: none;
+    width: 16px;
+    height: 16px;
+    /* `.auth-panel input` pads text fields; with border-box that pads the box itself out. */
+    padding: 0;
+    margin: 0;
+    flex-shrink: 0;
+    background-color: var(--wheat-50) !important;
+    border: 2px solid var(--frame-outer) !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    cursor: var(--cursor-clickable);
+}
+
+[data-theme^="stardew"] input[type="checkbox"]:checked {
+    background-color: var(--fern-600) !important;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 6 4' shape-rendering='crispEdges'%3E%3Cpath fill='%23fffaf0' d='M0 2h1v1H0zM1 3h2v1H1zM3 2h1v1H3zM4 1h1v1H4zM5 0h1v1H5z'/%3E%3C/svg%3E") !important;
+    background-repeat: no-repeat !important;
+    background-position: center !important;
+    background-size: 12px 8px !important;
+}
+
+/* --- Calendar: 2px grid lines (1px lines look hairline next to 2px frames), square event chips. --- */
+[data-theme^="stardew"] .fc-theme-standard td,
+[data-theme^="stardew"] .fc-theme-standard th,
+[data-theme^="stardew"] .fc-theme-standard .fc-scrollgrid {
+    border-width: 2px !important;
+}
+
+[data-theme^="stardew"] .fc-daygrid-day {
+    box-shadow: none;
+}
+
+[data-theme^="stardew"] .fc-event {
+    border-width: 2px !important;
+    border-radius: 0 !important;
+}
+
+/* Tooltips (tippy.js) come from a CDN stylesheet with rounded corners. */
+[data-theme^="stardew"] .tippy-box {
+    border-radius: 0 !important;
+    box-shadow: var(--panel-frame) !important;
+}
+
+/* ==========================================================================
+   Avatars: every avatar SVG shares one 18x18 pixel canvas (see images/), so a
+   whole-number scale is exact for all of them: x2 = 36px, x3 = 54px.
+   ========================================================================== */
+[data-theme^="stardew"] .tb-avatar,
+[data-theme^="stardew"] .chat-avatar,
+[data-theme^="stardew"] .chat-header-avatar,
+[data-theme^="stardew"] .avatar-option img {
+    width: 36px;
+    height: 36px;
+}
+
+[data-theme^="stardew"] .buddy-widget-avatar {
+    width: 54px;
+    height: 54px;
+}
+
+/* Stat-card portrait: 36px picture inside a 2px frame. */
+[data-theme^="stardew"] .buddy-card-avatar-box {
+    box-sizing: content-box;
+    width: 36px;
+    height: 36px;
+    padding: 4px;
+}
+
+/* #themeSelect has its own ID rule in components.css that keeps a pale border. */
+[data-theme^="stardew"] #themeSelect,
+[data-theme^="stardew"] #timezoneSelect {
+    border: 2px solid var(--frame-outer) !important;
+}
+
+/* FullCalendar's list-style event marker is a CSS circle. */
+[data-theme^="stardew"] .fc-daygrid-event-dot {
+    border-radius: 0 !important;
+}
+
+/* ==========================================================================
+   Icon-only buttons (close, add, translate): flat glyphs, no frame.
+   They are <button>s, so without this they pick up the UA border/padding and
+   the global white text + bevel, which turns a currentColor icon invisible.
+   ========================================================================== */
+[data-theme^="stardew"] :is(button.close-btn, .add-task-btn, .translate-btn) {
+    background: transparent !important;
+    border: 0 !important;
+    padding: 0 !important;
+    box-shadow: none !important;
+    transform: none;
+}
+
+[data-theme^="stardew"] .translate-btn {
+    width: 32px;
+    height: 32px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-muted) !important;
+}
+
+[data-theme^="stardew"] .translate-btn:hover {
+    color: var(--text-main) !important;
+}
+
+[data-theme^="stardew"] button.close-btn {
+    width: 24px;
+    height: 24px;
+}
+
+/* Room for the 24px close icon at the drawer header's right edge. */
+[data-theme^="stardew"] .sidebar-section-header {
+    padding-right: 36px;
+}
+
+/* A long title must not push the list wider than its drawer. */
+[data-theme^="stardew"] #taskList {
+    overflow-x: hidden;
+}
+
+/* The chat row is only a flex wrapper; its old white card background and soft shadow
+   showed as a blank square beside the avatar. */
+[data-theme^="stardew"] .message-row {
+    background: transparent !important;
+    box-shadow: none !important;
+}
+
+/* Frosted-glass blur is a smooth effect; pixel UIs just dim the screen. */
+[data-theme^="stardew"] .modal {
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+    background: var(--modal-overlay-bg) !important;
+}
+
+[data-theme^="stardew"] .glass-panel {
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+}
+
+/* The native "choose file" button keeps the OS's rounded look unless styled. */
+[data-theme^="stardew"] input[type="file"]::file-selector-button {
+    background: var(--wheat-50);
+    color: var(--text-main);
+    border: 2px solid var(--frame-outer);
+    border-radius: 0;
+    padding: 2px 8px;
+    margin-right: 8px;
+    font-family: var(--font-ui);
+    cursor: var(--cursor-clickable);
+}
+
+/* Poster title: sparkle sprites flank the text (the font has no ✦ glyph). */
+[data-theme^="stardew"] .buddy-poster-eyebrow {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+}
+
+/* The mood badge sits on the avatar's corner: a square slot holding the 16px mood sprite. */
+[data-theme^="stardew"] .buddy-mood-badge {
+    display: flex;
+    border-radius: 0;
+    padding: 0;
+    line-height: 0;
+    box-shadow: 0 0 0 2px var(--frame-outer);
+}
+
+[data-theme^="stardew"] .buddy-pulse {
+    border-radius: 0;
+}
+
+/* ==========================================================================
+   Today band on wide screens: 12px is a "small print" size for a 1280px+ window,
+   so the main text goes to 2x (24px). Everything that sits beside it scales by a
+   whole number too (avatar 36 -> 54 = 3x, sprites 16 -> 32 = 2x, checkbox 16 -> 24).
+   Narrower windows keep the compact 12px layout so nothing overflows.
+   ========================================================================== */
+/* Name and section title: 16px by default (narrow windows), 20px on wide ones (below).
+   Neither is a whole multiple of the 12px Chinese font's grid, so Chinese glyphs here are
+   slightly uneven; English uses the 16px font (see the :lang(en) rule at the end). */
+[data-theme^="stardew"] :is(.tb-buddy-name, .tb-agenda-title) {
+    font-size: 16px;
+}
+
+@media (min-width: 1280px) {
+    /* The greeting line and the "nothing due" message are asides, so they stay small. */
+    [data-theme^="stardew"] :is(.tb-task-title, .tb-task-time, .tb-lv, .tb-mood) {
+        font-size: 24px;
+    }
+
+    /* Status pills (Today / Overdue / Next due) are secondary: smaller than the 20px title.
+       English 16px (16px font), Chinese stays at the base 12px. */
+    [data-theme^="stardew"] .tb-pill:lang(en) {
+        font-family: "Ark Pixel 16", var(--font-ui) !important;
+        font-size: 16px;
+    }
+
+    [data-theme^="stardew"] :is(.tb-buddy-name, .tb-agenda-title) {
+        font-size: 20px;
+    }
+
+    [data-theme^="stardew"] .tb-mood .px-icon {
+        width: 32px;
+        height: 32px;
+    }
+
+    [data-theme^="stardew"] .tb-task-time {
+        width: 66px;
+    }
+
+    [data-theme^="stardew"] .tb-check {
+        width: 24px;
+        height: 24px;
+    }
+
+    [data-theme^="stardew"] .tb-check:checked {
+        background-size: 18px 12px !important;   /* the 6x4 check mark at 3x */
+    }
+}
+
+/* ==========================================================================
+   16px text (English only). Ark Pixel's 16px build is a real 16px pixel font, so
+   16px is crisp - but it only has ~100 Chinese characters, so it is limited to
+   English via :lang(en) (kept in sync with the UI language by applyLanguage()).
+   In Chinese these two lines stay at 12px, where the full-coverage font is crisp.
+   ========================================================================== */
+@font-face {
+    /* Ark Pixel Font 16px, proportional, Latin (OFL 1.1 - see fonts/LICENSES/ark-pixel/OFL.txt) */
+    font-family: "Ark Pixel 16";
+    src: url("../fonts/ark-pixel-16px-proportional-latin.otf.woff2") format("woff2");
+    font-weight: 400;
+    font-style: normal;
+    font-display: swap;
+}
+
+[data-theme^="stardew"] :is(.tb-greeting, .tb-empty-text):lang(en) {
+    font-family: "Ark Pixel 16", var(--font-ui) !important;
+    font-size: 16px;
+}
+
+/* English name / section title use the 16px font too (closest to its native grid at 16 and 20px). */
+[data-theme^="stardew"] :is(.tb-buddy-name, .tb-agenda-title):lang(en) {
+    font-family: "Ark Pixel 16", var(--font-ui) !important;
+}
+
+/* Night mode: every filled "primary" button uses the same deep gold as the task-detail Edit
+   button (.btn-sync). The cream fill came from --primary, which night mode sets to parchment. */
+html[data-theme="stardew-night"] :is(#input-area button, .analysis-tabs button.active) {
+    background: #e8b84b !important;
+    border: 1px solid #d1a13a !important;
+    color: #4d3319 !important;
+}
+
+html[data-theme="stardew-night"] :is(#input-area button, .analysis-tabs button.active):hover {
+    background: #f0c45c !important;
+}
+
+/* Buddy status poster: a pixel grass tile (16x16, shown at 2x) instead of anti-aliased diagonal
+   lines, the shared hard-edged panel frame instead of a blurred drop shadow, and a Stardew-style
+   title (cream letters with a hard 2px brown shadow). */
+[data-theme^="stardew"] .buddy-poster-modal {
+    border-radius: 0 !important;
+    box-shadow: var(--panel-frame) !important;
+}
+
+[data-theme^="stardew"] .buddy-poster-stage {
+    background-color: #3f6a2b;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' shape-rendering='crispEdges'%3E%3Cpath fill='%23335a22' d='M2 3h1v1H2zM9 1h2v1H9zM12 6h1v1h-1zM5 9h1v1H5zM14 12h1v1h-1zM7 14h2v1H7zM1 12h1v1H1zM11 11h1v2h-1zM4 5h1v1H4z'/%3E%3Cpath fill='%2352803a' d='M6 2h1v1H6zM13 3h1v1h-1zM3 7h2v1H3zM10 9h1v1h-1zM1 9h1v1H1zM8 12h1v1H8zM12 14h1v1h-1zM15 8h1v1h-1zM9 5h1v1H9zM5 13h1v1H5z'/%3E%3C/svg%3E");
+    background-size: 32px 32px;
+    image-rendering: pixelated;
+}
+
+[data-theme^="stardew"] .buddy-poster-eyebrow {
+    color: #fff3c4;
+    text-shadow: 2px 2px 0 #4a2c14;
+}
+
+[data-theme^="stardew"] .buddy-poster-footer {
+    color: #e3edcf;
+    text-shadow: 1px 1px 0 #2a4a1c;
+}
+
+/* ==========================================================================
+   Chat window: saved-conversation list <-> one conversation
+   #chat-container[data-view] is "list" or "chat" (set in chat.js).
+   ========================================================================== */
+#chat-container[data-view="list"] :is(#messages, #input-area, .chat-subbar) {
+    display: none;
+}
+
+#chat-container[data-view="chat"] #chatList {
+    display: none;
+}
+
+.chat-list {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.chat-subbar {
+    padding: 6px 12px;
+    border-bottom: 2px solid var(--frame-outer, #5a3b1f);
+}
+
+.chat-list-row {
+    display: flex;
+    align-items: stretch;
+    gap: 6px;
+}
+
+.chat-list-empty {
+    margin: 8px 0 0;
+    text-align: center;
+    color: var(--text-muted);
+}
+
+[data-theme^="stardew"] .chat-list-item {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 4px;
+    padding: 8px 12px;
+    text-align: left;
+    background: #fffaf0 !important;
+    color: #4d3319 !important;
+    border: 0 !important;
+}
+
+[data-theme^="stardew"] .chat-list-item:hover {
+    background: #f5ecd6 !important;
+}
+
+[data-theme^="stardew"] .chat-list-title {
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+[data-theme^="stardew"] .chat-list-meta {
+    font-size: 12px;
+    opacity: 0.7;
+}
+
+[data-theme^="stardew"] .chat-new-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 8px 12px;
+    background: #e8b84b !important;
+    color: #4d3319 !important;
+    border: 1px solid #d1a13a !important;
+}
+
+[data-theme^="stardew"] .chat-new-btn:hover {
+    background: #f0c45c !important;
+}
+
+[data-theme^="stardew"] :is(.chat-list-delete, .chat-back-btn) {
+    background: transparent !important;
+    border: 0 !important;
+    box-shadow: none !important;
+    transform: none;
+    color: var(--text-muted) !important;
+}
+
+[data-theme^="stardew"] .chat-list-delete {
+    width: 32px;
+    padding: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex: none;
+}
+
+[data-theme^="stardew"] .chat-back-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 2px 4px;
+}
+
+[data-theme^="stardew"] :is(.chat-list-delete, .chat-back-btn):hover {
+    color: var(--text-main) !important;
+}
+
+[data-theme="stardew-night"] .chat-list-item {
+    background: #2b3048 !important;
+    color: #ece0c4 !important;
+}
+
+[data-theme="stardew-night"] .chat-list-item:hover {
+    background: #363c5a !important;
+}
+
+[data-theme="stardew-night"] .chat-new-btn:hover {
+    background: #f0c45c !important;
+}
