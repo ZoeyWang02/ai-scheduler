@@ -1,6 +1,6 @@
-# AI Scheduler
+# PlanTriz AI Scheduler
 
-AI Scheduler is a Spring Boot application for academic task planning. It imports coursework from Canvas, Coursera, and `.ics` calendars, shows tasks and course sessions on a calendar, analyzes study rhythm, and uses an LLM to suggest task breakdowns.
+PlanTriz AI Scheduler is a Spring Boot application for academic task planning. It imports coursework from Canvas, Coursera, and `.ics` calendars, shows tasks and course sessions on a calendar, analyzes study rhythm, and uses an LLM to suggest task breakdowns.
 
 ## Demo
 
