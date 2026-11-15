@@ -279,6 +279,14 @@ label:has(> .px-ico-label) {
     box-shadow: var(--panel-frame) !important;
 }
 
+/* Day theme: hovering or opening a panel fills the button with cream, so the icon must turn dark.
+   The global `[data-theme^="stardew"] button { color:#fff !important }` (components.css) would keep
+   it white-on-cream, i.e. invisible. Night keeps white icons on its dark fill, so this is day only. */
+[data-theme="stardew"] .rail-btn:hover,
+[data-theme="stardew"] .rail-btn[aria-pressed="true"] {
+    color: var(--soil-900) !important;
+}
+
 /* The language switch is a text button on the rail: make it read like its neighbours. */
 [data-theme^="stardew"] #langToggleBtn {
     background: transparent !important;
@@ -289,6 +297,11 @@ label:has(> .px-ico-label) {
 [data-theme^="stardew"] #langToggleBtn:hover {
     background: var(--wheat-50) !important;
     color: var(--soil-900) !important;
+}
+
+/* Night: the hover fill is dark, so the label stays light (the rule above is the day colour). */
+[data-theme="stardew-night"] #langToggleBtn:hover {
+    color: #fff !important;
 }
 
 /* --- Inputs: 2px dark border with a small inset shadow (a "sunken slot"). --- */
