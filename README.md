@@ -2,6 +2,14 @@
 
 AI Scheduler is a Spring Boot application for academic task planning. It imports coursework from Canvas, Coursera, and `.ics` calendars, shows tasks and course sessions on a calendar, analyzes study rhythm, and uses an LLM to suggest task breakdowns.
 
+## Demo
+
+![PlanTriz demo preview](docs/media/plantriz-demo-en-preview.gif)
+
+[Watch the full demo (2 min, MP4)](docs/media/plantriz-demo-en.mp4): sign in, plan a midterm with the AI over a few chat turns ("move them to after 7pm" works because the chat keeps context), open a task, import a class timetable (`.ics`) and a Canvas export (`.json`), then Buddy XP, night mode and the language switch.
+
+The demo is scripted and re-recordable: `python tools/record_demo.py --gif` (prerequisites are listed at the top of that file).
+
 ## Features
 
 - User signup and signin with token-based API access.
