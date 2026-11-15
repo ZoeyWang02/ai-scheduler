@@ -21,4 +21,5 @@ export const PIXELARTICONS = {
     "undo": "<path d=\"M18 20h-6v-2h6v2Zm2-2h-2v-8h2v8Zm-10-4H8v-2H6v-2H4V8h2V6h2V4h2v4h8v2h-8v4Z\"/>",
     "arrow-left": "<path d=\"M20 11v2H4v-2zM8 13v2H6v-2zm2 2v2H8v-2zm2 2v2h-2v-2zm-4-6V9H6v2z\"/> <path d=\"M10 15V7H8v8zm2 2V5h-2v12z\"/>",
     "trash": "<path d=\"M18 22H6V20H18V22ZM9 6H15V4H17V6H22V8H20V20H18V8H6V20H4V8H2V6H7V4H9V6ZM15 4H9V2H15V4Z\"/>",
+    "attachment": "<path d=\"M7 7v10H5V7zm12 0v12h-2V7zm-8 2v10H9V9zm4 0v8h-2V9zm0-6v2H9V3zm-2 4v2h-2V7zm4 12v2h-6v-2zm0-14v2h-2V5zM9 5v2H7V5z\"/>",
 };

@@ -237,7 +237,8 @@
             <span class="close-btn" onclick="closeImportModal()"><span class="px-ico" data-icon="close"></span></span>
             <h2 style="margin-top:0;" data-i18n="importTitle">Import coursework</h2>
             <div class="auth-panel" style="gap: 12px;">
-                <input type="file" id="unifiedImportFile" accept=".json,.ics,application/json,text/calendar">
+                <input type="file" id="unifiedImportFile" accept=".json,.ics,.pdf,.docx,.txt,.md,application/json,text/calendar,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain">
+                <div class="auth-hint" data-i18n="importModalHint">Supports .ics timetables, Canvas / Coursera .json, and PDF, Word (.docx) or text documents (read by AI, so please check the result).</div>
                 <button class="btn-sync" onclick="previewUnifiedImport()" data-i18n="previewImportBtn">Preview import</button>
                 <div id="importSummary" class="auth-hint"></div>
                 <div id="importTools" class="import-tools" style="display:none;">
@@ -374,6 +375,8 @@
                 </div>
                 <div id="messages"></div>
                 <div id="input-area">
+                    <button type="button" id="chatAttachBtn" class="chat-attach-btn" title="Import a file" aria-label="Import a file" data-i18n-title="chatAttachTitle"><span class="px-ico" data-icon="attachment"></span></button>
+                    <input type="file" id="chatFileInput" hidden accept=".json,.ics,.pdf,.docx,.txt,.md,application/json,text/calendar,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain">
                     <input type="text" id="userInput" placeholder="输入任务名称进行拆解..." data-i18n-placeholder="chatPlaceholder"
                         onkeydown="if(event.key === 'Enter') sendMessage()">
                     <button onclick="sendMessage()" data-i18n="sendBtn">发送</button>

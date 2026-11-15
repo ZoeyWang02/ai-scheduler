@@ -22,7 +22,7 @@ ICONS = [
     "close", "plus", "download", "moon", "sun", "user",
     "message-text", "list-box", "chart-bar-big", "settings-cog",
     "languages", "globe", "bell", "map-pin", "card-text", "target", "undo",
-    "arrow-left", "trash",
+    "arrow-left", "trash", "attachment",
 ]
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent

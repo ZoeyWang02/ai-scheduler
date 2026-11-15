@@ -724,3 +724,68 @@ html[data-theme="stardew-night"] :is(#input-area button, .analysis-tabs button.a
 [data-theme="stardew-night"] .chat-new-btn:hover {
     background: #f0c45c !important;
 }
+
+/* Chat: the paperclip beside the message box is a small secondary icon button, not a second "Send".
+   Without this it inherited the wide filled Send style and squeezed the input. */
+#input-area .chat-attach-btn {
+    flex: 0 0 auto;
+    width: 38px;
+    min-width: 38px;
+    padding: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+[data-theme="stardew"] #input-area .chat-attach-btn {
+    background: var(--wheat-50) !important;
+    color: var(--soil-900) !important;
+}
+
+html[data-theme="stardew-night"] #input-area .chat-attach-btn {
+    background: #2b3048 !important;
+    border: 1px solid #5a6088 !important;
+    color: #fff !important;
+}
+
+html[data-theme="stardew-night"] #input-area .chat-attach-btn:hover {
+    background: #3a4160 !important;
+}
+
+/* The import card in the chat: the rows are the same ones the Import dialog uses. */
+.import-card .import-card-summary {
+    margin: 0 0 8px;
+    font-size: var(--text-caption);
+    line-height: 1.45;
+}
+
+.import-card .import-card-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-bottom: 10px;
+}
+
+.import-card .sync-btn:disabled {
+    opacity: 0.6;
+    cursor: default;
+}
+
+/* Night: the plan / import card's action button ("Apply Selected Plans", "Import selected") had a cream
+   fill with white text. Use the same deep gold as the other night primary buttons; once it has been
+   used (disabled) it turns into a quiet slate button. */
+html[data-theme="stardew-night"] .ai-planner-box .sync-btn:not(:disabled) {
+    background: #e8b84b !important;
+    border: 1px solid #d1a13a !important;
+    color: #4d3319 !important;
+}
+
+html[data-theme="stardew-night"] .ai-planner-box .sync-btn:not(:disabled):hover {
+    background: #f0c45c !important;
+}
+
+html[data-theme="stardew-night"] .ai-planner-box .sync-btn:disabled {
+    background: #4a5070 !important;
+    border: 1px solid #5a6088 !important;
+    color: #cfd3e8 !important;
+}

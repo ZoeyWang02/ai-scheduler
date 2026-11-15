@@ -7,6 +7,7 @@ import { getActiveAnalysisPeriod, loadLifestyleAnalysis, translateDynamicText } 
 import { addAuthParams, getAuthToken, getUserId, requireUser } from './auth.js';
 import { refreshUserScopedViews } from './app.js';
 import { toggleTranslate, triggerAutoAiPlanner } from './chat.js';
+import { extractDocumentText, fileExtension, isDocumentFile } from './docExtract.js';
 
 import { pixelIcon } from './pixelIcons.js';
 export function taskApiUrl(timezone) {
@@ -441,6 +442,47 @@ export function closeImportModal() {
             document.getElementById('importModal').style.display = 'none';
         }
 
+// Why a document could not be read, in the UI language.
+function documentErrorMessage(error, dict) {
+            const known = { tooLarge: dict.importDocTooLarge, unsupported: dict.importDocUnsupported, empty: dict.importDocEmpty };
+            return known[error && error.code] || dict.importDocUnreadable;
+        }
+
+/* Asks the server what a file would import, without importing anything. Used by the Import dialog and by
+   the attach button in the chat. .ics / .json files are uploaded as they are; PDF, Word and text documents
+   are read in the browser and only their text is sent, for the AI to pick the tasks and sessions out of.
+   Resolves to the preview; rejects with an Error whose message can be shown to the user. */
+export async function requestImportPreview(file) {
+            const dict = translations[localStorage.getItem('appLang') || 'zh'];
+            const timezone = document.getElementById('timezoneSelect').value;
+            const query = `userId=${getUserId()}&authToken=${encodeURIComponent(getAuthToken())}&timezone=${encodeURIComponent(timezone)}`;
+            // Anything that is neither a document nor a calendar / JSON export: say so here, in plain words.
+            if (!isDocumentFile(file) && !['ics', 'json'].includes(fileExtension(file.name))) {
+                throw new Error(dict.importDocUnsupported);
+            }
+            let response;
+            if (isDocumentFile(file)) {
+                let text;
+                try {
+                    text = await extractDocumentText(file);
+                } catch (error) {
+                    throw new Error(documentErrorMessage(error, dict));
+                }
+                response = await fetch(`${API_BASE}/api/import/preview-text?${query}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ fileName: file.name, text })
+                });
+            } else {
+                const formData = new FormData();
+                formData.append('file', file);
+                response = await fetch(`${API_BASE}/api/import/preview?${query}`, { method: 'POST', body: formData });
+            }
+            const result = await response.json().catch(() => ({}));
+            if (!response.ok) throw new Error(result.message || dict.checkInput);
+            return result;
+        }
+
 export async function previewUnifiedImport() {
             if (!requireUser()) return;
             const lang = localStorage.getItem('appLang') || 'zh';
@@ -450,21 +492,11 @@ export async function previewUnifiedImport() {
                 alert(translations[lang].alertSelectFile);
                 return;
             }
-            const formData = new FormData();
-            formData.append('file', file);
-            const timezone = document.getElementById('timezoneSelect').value;
             const summaryEl = document.getElementById('importSummary');
-            summaryEl.innerText = translations[lang].syncing;
+            summaryEl.innerText = isDocumentFile(file) ? translations[lang].importReadingDocument : translations[lang].syncing;
 
             try {
-                const response = await fetch(`${API_BASE}/api/import/preview?userId=${getUserId()}&authToken=${encodeURIComponent(getAuthToken())}&timezone=${encodeURIComponent(timezone)}`, {
-                    method: 'POST',
-                    body: formData
-                });
-                const result = await response.json();
-                if (!response.ok) {
-                    throw new Error(result.message || translations[lang].checkInput);
-                }
+                const result = await requestImportPreview(file);
                 state.currentImportPreview = result;
                 renderImportPreview(result);
             } catch (error) {
@@ -496,10 +528,81 @@ function formatImportTime(iso, timezone, lang, timeOnly = false) {
             }
         }
 
-export function renderImportPreview(preview) {
+/* "Found 3 tasks and 2 class sessions. 1 already imported ... (unchecked by default)" plus the AI warning. */
+export function describeImportPreview(preview) {
+            const lang = localStorage.getItem('appLang') || 'zh';
+            const dict = translations[lang];
+            const items = preview.items || [];
+            const pastCount = items.filter(item => item.past).length;
+            const existingCount = items.filter(item => item.status === 'duplicate').length;
+            let line = fillTemplate(dict.importSummaryFound, {
+                tasks: items.filter(item => item.kind !== 'course').length,
+                courses: items.filter(item => item.kind === 'course').length
+            });
+            const unchecked = [];
+            if (pastCount) unchecked.push(fillTemplate(dict.importPastCount, { n: pastCount }));
+            if (existingCount) unchecked.push(fillTemplate(dict.importExistingCount, { n: existingCount }));
+            if (unchecked.length) line += ' ' + unchecked.join(lang === 'zh' ? '、' : ', ') + dict.importUncheckedSuffix;
+            if (preview.aiFallbackUsed) line += ' ' + dict.importAiWarn;
+            return line;
+        }
+
+/* One selectable row of an import preview (a checkbox, status badges, title, when, and notes). Shared by the
+   Import dialog and the preview card in the chat. */
+export function buildImportRow(item, preview) {
             const lang = localStorage.getItem('appLang') || 'zh';
             const dict = translations[lang];
             const timezone = document.getElementById('timezoneSelect').value;
+            const badge = (kind, text) => `<span class="import-badge import-badge-${kind}">${escapeHtml(text)}</span>`;
+
+            // Pre-select only what is worth importing: new/changed items that
+            // are still ahead of us. A semester export otherwise drops dozens of
+            // already-past deadlines into the app as "overdue".
+            const suggested = !item.past && item.status !== 'duplicate';
+            const row = document.createElement('label');
+            row.className = 'import-preview-item' + (item.past ? ' is-past' : '') + (item.status === 'duplicate' ? ' is-duplicate' : '');
+            row.dataset.suggested = suggested ? '1' : '0';
+
+            const badges = [];
+            if (item.status === 'update') badges.push(badge('update', dict.importBadgeUpdate));
+            else if (item.status === 'duplicate') badges.push(badge('exists', dict.importBadgeExists));
+            else badges.push(badge('new', dict.importBadgeNew));
+            if (item.past) badges.push(badge('past', dict.importBadgePast));
+
+            let when;
+            if (item.kind === 'course') {
+                when = `${formatImportTime(item.start, timezone, lang)} – ${formatImportTime(item.end, timezone, lang, true)}`;
+            } else if (item.dueDate) {
+                when = `${dict.importDueLabel} ${formatImportTime(item.dueDate, timezone, lang)}`;
+            } else {
+                when = dict.importNoDeadline;
+            }
+            const kindLabel = item.kind === 'course' ? dict.importKindCourse : dict.importKindTask;
+            const confidence = preview.aiFallbackUsed
+                ? ` · ${dict.importConfidence} ${Math.round((item.confidence || 0) * 100)}%` : '';
+            const metaLines = [`${kindLabel} · ${item.source || ''}${confidence}`, when];
+            if (item.status === 'update' && item.existingDueDate) {
+                metaLines.push(fillTemplate(dict.importUpdateDue, {
+                    from: formatImportTime(item.existingDueDate, timezone, lang),
+                    to: formatImportTime(item.dueDate, timezone, lang)
+                }));
+            }
+            // Parser notes are developer-facing; only the AI-cleanup ones ("review
+            // before confirming") are worth showing to the user.
+            if (preview.aiFallbackUsed && item.notes) metaLines.push(item.notes);
+
+            row.innerHTML = `
+                <input type="checkbox" class="import-item-check" value="${escapeHtml(item.id)}" ${suggested ? 'checked' : ''}>
+                <div>
+                    <div class="import-preview-head">${badges.join('')}<span class="import-preview-title">${escapeHtml(item.title || 'Untitled')}</span></div>
+                    <div class="import-preview-meta">${metaLines.map(escapeHtml).join('<br>')}</div>
+                </div>`;
+            return row;
+        }
+
+export function renderImportPreview(preview) {
+            const lang = localStorage.getItem('appLang') || 'zh';
+            const dict = translations[lang];
             const list = document.getElementById('importPreviewList');
             const summary = document.getElementById('importSummary');
             const tools = document.getElementById('importTools');
@@ -513,65 +616,8 @@ export function renderImportPreview(preview) {
                 return;
             }
 
-            const pastCount = items.filter(item => item.past).length;
-            const existingCount = items.filter(item => item.status === 'duplicate').length;
-            let line = fillTemplate(dict.importSummaryFound, {
-                tasks: items.filter(item => item.kind !== 'course').length,
-                courses: items.filter(item => item.kind === 'course').length
-            });
-            const unchecked = [];
-            if (pastCount) unchecked.push(fillTemplate(dict.importPastCount, { n: pastCount }));
-            if (existingCount) unchecked.push(fillTemplate(dict.importExistingCount, { n: existingCount }));
-            if (unchecked.length) line += ' ' + unchecked.join(lang === 'zh' ? '、' : ', ') + dict.importUncheckedSuffix;
-            if (preview.aiFallbackUsed) line += ' ' + dict.importAiWarn;
-            summary.innerText = line;
-
-            const badge = (kind, text) => `<span class="import-badge import-badge-${kind}">${escapeHtml(text)}</span>`;
-            items.forEach(item => {
-                // Pre-select only what is worth importing: new/changed items that
-                // are still ahead of us. A semester export otherwise drops dozens of
-                // already-past deadlines into the app as "overdue".
-                const suggested = !item.past && item.status !== 'duplicate';
-                const row = document.createElement('label');
-                row.className = 'import-preview-item' + (item.past ? ' is-past' : '') + (item.status === 'duplicate' ? ' is-duplicate' : '');
-                row.dataset.suggested = suggested ? '1' : '0';
-
-                const badges = [];
-                if (item.status === 'update') badges.push(badge('update', dict.importBadgeUpdate));
-                else if (item.status === 'duplicate') badges.push(badge('exists', dict.importBadgeExists));
-                else badges.push(badge('new', dict.importBadgeNew));
-                if (item.past) badges.push(badge('past', dict.importBadgePast));
-
-                let when;
-                if (item.kind === 'course') {
-                    when = `${formatImportTime(item.start, timezone, lang)} – ${formatImportTime(item.end, timezone, lang, true)}`;
-                } else if (item.dueDate) {
-                    when = `${dict.importDueLabel} ${formatImportTime(item.dueDate, timezone, lang)}`;
-                } else {
-                    when = dict.importNoDeadline;
-                }
-                const kindLabel = item.kind === 'course' ? dict.importKindCourse : dict.importKindTask;
-                const confidence = preview.aiFallbackUsed
-                    ? ` · ${dict.importConfidence} ${Math.round((item.confidence || 0) * 100)}%` : '';
-                const metaLines = [`${kindLabel} · ${item.source || ''}${confidence}`, when];
-                if (item.status === 'update' && item.existingDueDate) {
-                    metaLines.push(fillTemplate(dict.importUpdateDue, {
-                        from: formatImportTime(item.existingDueDate, timezone, lang),
-                        to: formatImportTime(item.dueDate, timezone, lang)
-                    }));
-                }
-                // Parser notes are developer-facing; only the AI-cleanup ones ("review
-                // before confirming") are worth showing to the user.
-                if (preview.aiFallbackUsed && item.notes) metaLines.push(item.notes);
-
-                row.innerHTML = `
-                    <input type="checkbox" class="import-item-check" value="${escapeHtml(item.id)}" ${suggested ? 'checked' : ''}>
-                    <div>
-                        <div class="import-preview-head">${badges.join('')}<span class="import-preview-title">${escapeHtml(item.title || 'Untitled')}</span></div>
-                        <div class="import-preview-meta">${metaLines.map(escapeHtml).join('<br>')}</div>
-                    </div>`;
-                list.appendChild(row);
-            });
+            summary.innerText = describeImportPreview(preview);
+            items.forEach(item => list.appendChild(buildImportRow(item, preview)));
             list.onchange = updateImportSelectionCount;
             tools.style.display = 'flex';
             document.getElementById('confirmImportBtn').style.display = 'block';
@@ -595,6 +641,32 @@ export function setImportSelection(mode) {
             updateImportSelectionCount();
         }
 
+/* Writes the chosen items of a preview. Resolves to the server's counts; rejects with a displayable Error. */
+export async function confirmImportRequest(importId, itemIds) {
+            const dict = translations[localStorage.getItem('appLang') || 'zh'];
+            const response = await fetch(`${API_BASE}/api/import/confirm?userId=${getUserId()}&authToken=${encodeURIComponent(getAuthToken())}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ importId, itemIds })
+            });
+            const result = await response.json().catch(() => ({}));
+            if (!response.ok) throw new Error(result.message || dict.checkInput);
+            return result;
+        }
+
+/* Report what was actually written: items that already existed are skipped, so "N selected" and
+   "N imported" are different numbers. `wrote` is how many things changed. */
+export function importResultMessage(result) {
+            const dict = translations[localStorage.getItem('appLang') || 'zh'];
+            let message = fillTemplate(dict.importDoneDetail, {
+                created: result.tasksCreated || 0,
+                updated: result.tasksUpdated || 0,
+                courses: result.coursesCreated || 0
+            });
+            if (result.duplicates) message += fillTemplate(dict.importDoneDup, { n: result.duplicates });
+            return { message, wrote: (result.tasksCreated || 0) + (result.tasksUpdated || 0) + (result.coursesCreated || 0) };
+        }
+
 export async function confirmUnifiedImport() {
             if (!requireUser() || !state.currentImportPreview) return;
             const lang = localStorage.getItem('appLang') || 'zh';
@@ -605,24 +677,8 @@ export async function confirmUnifiedImport() {
                 return;
             }
             try {
-                const response = await fetch(`${API_BASE}/api/import/confirm?userId=${getUserId()}&authToken=${encodeURIComponent(getAuthToken())}`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ importId: state.currentImportPreview.importId, itemIds })
-                });
-                const result = await response.json();
-                if (!response.ok) {
-                    throw new Error(result.message || dict.checkInput);
-                }
-                // Report what was actually written — items that already existed are
-                // skipped, so "N selected" and "N imported" are different numbers.
-                let message = fillTemplate(dict.importDoneDetail, {
-                    created: result.tasksCreated || 0,
-                    updated: result.tasksUpdated || 0,
-                    courses: result.coursesCreated || 0
-                });
-                if (result.duplicates) message += fillTemplate(dict.importDoneDup, { n: result.duplicates });
-                const wrote = (result.tasksCreated || 0) + (result.tasksUpdated || 0) + (result.coursesCreated || 0);
+                const result = await confirmImportRequest(state.currentImportPreview.importId, itemIds);
+                const { message, wrote } = importResultMessage(result);
                 showToast(message, wrote ? 'success' : 'info');
                 closeImportModal();
                 refreshUserScopedViews();

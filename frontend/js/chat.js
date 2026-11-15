@@ -5,7 +5,8 @@ import { escapeHtml, linkify, showToast } from './utils.js';
 import { getChatAvatarSrc } from './buddy.js';
 import { getAuthToken, getUserId, requireUser } from './auth.js';
 import { getActiveAnalysisPeriod, loadLifestyleAnalysis } from './analytics.js';
-import { loadTasks } from './scheduler.js';
+import { buildImportRow, confirmImportRequest, describeImportPreview, importResultMessage, loadTasks, requestImportPreview } from './scheduler.js';
+import { refreshUserScopedViews } from './app.js';
 import { addMessage, deleteConversation, getConversation, loadConversations, updateMessage } from './chatHistory.js';
 
 import { pixelIcon } from './pixelIcons.js';
@@ -386,6 +387,105 @@ export async function toggleTranslate(btn, targetEl, originalText, mode) {
             } finally {
                 btn.disabled = false;
             }
+        }
+
+/* ---- Importing a file from the chat -------------------------------------------------------------
+   The paperclip next to the message box takes a timetable (.ics), a Canvas / Coursera export (.json) or a
+   document (PDF, Word, text). The file shows up as a message, the server works out what it contains (an
+   AI reads documents), and a card lists what was found with checkboxes. Nothing is added to the calendar
+   until "Import selected" is pressed. */
+
+export function initChatAttach() {
+            const button = document.getElementById('chatAttachBtn');
+            const input = document.getElementById('chatFileInput');
+            if (!button || !input) return;
+            button.addEventListener('click', () => { if (requireUser()) input.click(); });
+            input.addEventListener('change', async () => {
+                const file = input.files[0];
+                input.value = ''; // so choosing the same file again still fires 'change'
+                if (file) await importFileFromChat(file);
+            });
+        }
+
+function showTypingIndicator() {
+            const container = document.getElementById('messages');
+            const loading = document.createElement('div');
+            loading.className = 'message ai';
+            loading.id = 'ai-loading-placeholder';
+            loading.innerHTML = `<div class="typing-loader"><span></span><span></span><span></span></div>`;
+            container.appendChild(loading);
+            container.scrollTop = container.scrollHeight;
+            return () => loading.remove();
+        }
+
+async function importFileFromChat(file) {
+            const dict = translations[localStorage.getItem('appLang') || 'zh'];
+            appendMessage('user', dict.chatAttachedFile.replace('{name}', file.name));
+            const conversationId = currentConversationId;
+            const removeTyping = showTypingIndicator();
+            try {
+                const preview = await requestImportPreview(file);
+                removeTyping();
+                if (!(preview.items || []).length) {
+                    appendMessage('ai', dict.chatImportNone, false, { conversationId });
+                    return;
+                }
+                appendImportCard(preview, file.name);
+            } catch (error) {
+                removeTyping();
+                appendMessage('ai', dict.chatImportFail + error.message, true, { conversationId });
+            }
+        }
+
+function appendImportCard(preview, fileName) {
+            const dict = translations[localStorage.getItem('appLang') || 'zh'];
+            const conversationId = currentConversationId;
+            const card = document.createElement('div');
+            card.className = 'ai-planner-box import-card';
+
+            const header = document.createElement('div');
+            header.className = 'planner-header';
+            header.textContent = dict.chatImportHeader.replace('{name}', fileName);
+            const summary = document.createElement('div');
+            summary.className = 'import-card-summary';
+            summary.textContent = describeImportPreview(preview);
+            const list = document.createElement('div');
+            list.className = 'import-card-list';
+            preview.items.forEach(item => list.appendChild(buildImportRow(item, preview)));
+            const button = document.createElement('button');
+            button.type = 'button';
+            button.className = 'sync-btn';
+            button.textContent = dict.chatImportConfirmBtn;
+
+            const refreshButton = () => {
+                const selected = list.querySelectorAll('.import-item-check:checked').length;
+                button.disabled = selected === 0;
+            };
+            list.addEventListener('change', refreshButton);
+            refreshButton();
+
+            button.addEventListener('click', async () => {
+                const itemIds = Array.from(list.querySelectorAll('.import-item-check:checked')).map(box => box.value);
+                if (!itemIds.length) { showToast(dict.importNothingSelected, 'info'); return; }
+                button.disabled = true;
+                try {
+                    const result = await confirmImportRequest(preview.importId, itemIds);
+                    const { message, wrote } = importResultMessage(result);
+                    showToast(message, wrote ? 'success' : 'info');
+                    button.textContent = dict.chatImportDoneBtn;
+                    list.querySelectorAll('input').forEach(box => { box.disabled = true; });
+                    appendMessage('ai', message, false, { conversationId });
+                    refreshUserScopedViews();
+                } catch (error) {
+                    button.disabled = false;
+                    showToast(dict.importConfirmFail + error.message, 'error');
+                }
+            });
+
+            card.append(header, summary, list, button);
+            const container = document.getElementById('messages');
+            container.appendChild(card);
+            container.scrollTop = container.scrollHeight;
         }
 
 /* ---- Chat history: a list of saved conversations, and the conversation itself ---- */

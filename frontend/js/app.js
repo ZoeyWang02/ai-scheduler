@@ -3,7 +3,7 @@ import { closeLifePanelModal, getActiveAnalysisPeriod, loadLifestyleAnalysis, op
 import { closeAuthModal, consumeOAuthRedirect, getUserId, openAuthModal, renderAuthState, requestPasswordCode, setAuthMode, signOut, startExternalAuth, submitCurrentAuth } from './auth.js';
 import { closeBuddyStatusModal, openBuddyStatusModal, refreshBuddyState, syncAllBuddyAvatars } from './buddy.js';
 import { initBuddyWidget, isBuddyWidgetPinned, resetBuddyWidgetPosition, unpinBuddyWidget, updateChatWindowPosition } from './buddyWidget.js';
-import { appendMessage, checkAiStatus, sendMessage, showChatList, syncSelectedTasks } from './chat.js';
+import { appendMessage, checkAiStatus, initChatAttach, sendMessage, showChatList, syncSelectedTasks } from './chat.js';
 import { applyLanguage, toggleLanguage, translations } from './i18n.js';
 import { initReminders, toggleReminders } from './reminders.js';
 import { closeImportModal, closeModal, confirmUnifiedImport, courseApiUrl, courseToCalendarEvent, initCalendar, loadTasks, loadTimezones, onTimezoneChange, openEditModal, openImportModal, previewUnifiedImport, saveManualTask, setImportSelection, taskApiUrl, taskToCalendarEvent, updateTaskColor } from './scheduler.js';
@@ -40,6 +40,7 @@ document.addEventListener('DOMContentLoaded', function () {
             loadLifestyleAnalysis('day', initialTz);
             initBuddyWidget();
             initReminders();
+            initChatAttach();
 
             // The task panel now pushes/shrinks the calendar via a real
             // width transition (not transform), so FullCalendar's own
