@@ -24,6 +24,8 @@ export async function sendMessage() {
                 return;
             }
 
+            // Taken before this message is stored, so it holds only the earlier turns.
+            const history = buildChatHistory();
             appendMessage('user', message);
             input.value = '';
             // The reply belongs to this conversation even if the user navigates away while waiting.
@@ -51,7 +53,8 @@ export async function sendMessage() {
                         userId: getUserId() ? String(getUserId()) : '',
                         authToken: getAuthToken(),
                         timezone: document.getElementById('timezoneSelect').value,
-                        lang: lang
+                        lang: lang,
+                        history: history
                     })
                 });
                 if (!response.ok) throw new Error('AI request failed: ' + response.status);
@@ -66,6 +69,36 @@ export async function sendMessage() {
                 appendMessage('ai', translations[lang].aiConnectFail, true, { conversationId });
                 if (conversationId === currentConversationId) input.value = message;
             }
+        }
+
+/* The earlier turns of the open conversation, in the shape the chat API expects, so the AI can
+   follow up on them ("move them to the evening"). A plan box becomes one short line listing its
+   steps: "[Proposed plan]" until the user applies it, "[Applied plan]" afterwards. */
+const HISTORY_TURNS = 8;
+
+export function describePlan(planJson, applied = false) {
+            let tasks;
+            try { tasks = JSON.parse(planJson); } catch (e) { return ''; }
+            if (!Array.isArray(tasks) || !tasks.length) return '';
+            const steps = tasks.map(t => (t.action || 'add') === 'delete'
+                ? `delete "${t.step || ''}" (taskId ${t.taskId || ''})`
+                : `${t.step || ''} (${t.estimatedHours || 1}h) @ ${t.suggestedDate || 'unscheduled'}`);
+            return `${applied ? '[Applied plan]' : '[Proposed plan]'} ${steps.join('; ')}`;
+        }
+
+export function buildChatHistory(conversation = currentConversationId ? getConversation(currentConversationId) : null) {
+            if (!conversation) return [];
+            const turns = [];
+            for (const m of conversation.messages) {
+                if (m.error) continue;
+                if (m.role === 'user' && m.text) turns.push({ role: 'user', content: m.text });
+                else if (m.role === 'ai' && m.text) turns.push({ role: 'assistant', content: m.text });
+                else if (m.role === 'plan') {
+                    const line = describePlan(m.plan, !!m.applied);
+                    if (line) turns.push({ role: 'assistant', content: line });
+                }
+            }
+            return turns.slice(-HISTORY_TURNS);
         }
 
 // Shows (and stores) an AI reply: prose first, then the plan box when the reply carries a JSON plan.

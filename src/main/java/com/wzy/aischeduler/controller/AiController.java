@@ -1,5 +1,7 @@
 package com.wzy.aischeduler.controller;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 
 import org.springframework.http.ResponseEntity;
@@ -54,29 +56,49 @@ public class AiController {
     }
 
     @PostMapping("/chat")
-    public ResponseEntity<String> chatWithAi(@RequestBody Map<String, String> requestData) {
-        String userMessage = requestData.get("message");
+    public ResponseEntity<String> chatWithAi(@RequestBody Map<String, Object> requestData) {
+        String userMessage = text(requestData.get("message"));
         if (userMessage == null || userMessage.trim().isEmpty()) {
             return ResponseEntity.badRequest().body("Request must include a non-empty 'message' field.");
         }
 
         Long userId = null;
-        if (requestData.get("userId") != null && !requestData.get("userId").isBlank()) {
-            userId = Long.parseLong(requestData.get("userId"));
+        String userIdText = text(requestData.get("userId"));
+        if (userIdText != null && !userIdText.isBlank()) {
+            userId = Long.parseLong(userIdText);
         }
-        String authToken = requestData.get("authToken");
-        String timezone = requestData.getOrDefault("timezone", "America/Chicago");
-        String lang = requestData.getOrDefault("lang", "en");
+        String authToken = text(requestData.get("authToken"));
+        String timezone = text(requestData.getOrDefault("timezone", "America/Chicago"));
+        String lang = text(requestData.getOrDefault("lang", "en"));
+        List<Map<String, String>> history = readHistory(requestData.get("history"));
 
         try {
             if (userId != null) {
                 authService.requireUser(userId, authToken);
             }
-            return ResponseEntity.ok(aiService.chat(userMessage, userId, timezone, lang));
+            return ResponseEntity.ok(aiService.chat(userMessage, userId, timezone, lang, history));
         } catch (SecurityException e) {
             return ResponseEntity.status(401).body("Authentication failed: " + e.getMessage());
         } catch (Exception e) {
             return ResponseEntity.internalServerError().body("AI service error: " + e.getMessage());
         }
+    }
+
+    private static String text(Object value) {
+        return value == null ? null : String.valueOf(value);
+    }
+
+    /** The optional "history" field: a list of {role, content}. Anything malformed is ignored. */
+    private static List<Map<String, String>> readHistory(Object raw) {
+        if (!(raw instanceof List<?> list)) return List.of();
+        List<Map<String, String>> turns = new ArrayList<>();
+        for (Object item : list) {
+            if (item instanceof Map<?, ?> map && map.get("role") != null && map.get("content") != null) {
+                turns.add(Map.of(
+                        "role", String.valueOf(map.get("role")),
+                        "content", String.valueOf(map.get("content"))));
+            }
+        }
+        return turns;
     }
 }

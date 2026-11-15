@@ -199,6 +199,42 @@ public class AiService {
      * 核心双语聊天方法
      */
     public String chat(String userMessage, Long userId, String userTimezone, String lang) {
+        return chat(userMessage, userId, userTimezone, lang, List.of());
+    }
+
+    static final int MAX_HISTORY_MESSAGES = 8;
+    static final int MAX_HISTORY_CHARS = 1500;
+
+    /**
+     * Earlier turns of the same conversation, so a follow-up such as "move them to the evening"
+     * can be understood. Only user/assistant turns are kept, only the most recent few, each capped
+     * in length; anything else (including a client trying to inject a "system" turn) is dropped.
+     */
+    static List<Map<String, String>> sanitizeHistory(List<Map<String, String>> raw) {
+        if (raw == null) return List.of();
+        List<Map<String, String>> kept = new java.util.ArrayList<>();
+        for (Map<String, String> turn : raw) {
+            if (turn == null) continue;
+            String role = turn.get("role");
+            String content = turn.get("content");
+            if (content == null || content.isBlank()) continue;
+            if (!"user".equals(role) && !"assistant".equals(role)) continue;
+            String trimmed = content.length() > MAX_HISTORY_CHARS ? content.substring(0, MAX_HISTORY_CHARS) + "…" : content;
+            kept.add(Map.of("role", role, "content", trimmed));
+        }
+        int from = Math.max(0, kept.size() - MAX_HISTORY_MESSAGES);
+        return List.copyOf(kept.subList(from, kept.size()));
+    }
+
+    static List<Map<String, String>> buildMessages(String systemPrompt, List<Map<String, String>> history, String userMessage) {
+        List<Map<String, String>> messages = new java.util.ArrayList<>();
+        messages.add(Map.of("role", "system", "content", systemPrompt));
+        messages.addAll(sanitizeHistory(history));
+        messages.add(Map.of("role", "user", "content", userMessage));
+        return messages;
+    }
+
+    public String chat(String userMessage, Long userId, String userTimezone, String lang, List<Map<String, String>> history) {
         boolean isEn = "en".equals(lang);
 
         // 🌟 1. 强力语言指令
@@ -243,6 +279,7 @@ public class AiService {
                       "\n(B) The user ASKS you to plan, schedule, break down or prioritize work. Make a plan that follows the scheduling rules: every suggestedDate between 06:00 and 23:00 (user's local time), never overlapping busy times; if there is not enough data prefer 09:00-11:30, 14:00-17:00, 19:00-22:00. You may add, reduce or cancel tasks; to delete an existing task return action=delete with its taskId." +
                       "\n(C) Anything else (a question, chat, thanks): answer briefly in plain text with NO JSON." +
                       "\nThe task list above is background only: never re-add, repeat or reschedule those tasks unless the user asks. Never invent tasks, courses or deliverables the user did not mention." +
+                      "\nThe earlier turns of this conversation are included before the user's latest message: use them to understand words like \"it\", \"them\" or \"that plan\". A turn starting with [Proposed plan] is a plan you suggested that the user has NOT applied yet, and one starting with [Applied plan] was already added to the task list; if they ask to change an unapplied plan, return the complete revised plan as one fresh JSON array (not just the differences). If they want to change tasks that are already in the task list above, return action=delete (with the taskId) for the old ones and action=add for the new ones." +
                       "\nFor every action=add item, \"description\" is one or two concrete sentences saying what to do, based on what the user said in this conversation. Never use generic filler." +
                       "\nWhen you return JSON, append one raw JSON array at the end of your response, formatted exactly like this:\n"
                     : "\n先判断用户想要什么，再回答：" +
@@ -250,6 +287,7 @@ public class AiService {
                       "\n（B）用户请你制定计划、安排日程、拆解或排优先级。按排期规则做计划：所有 suggestedDate 必须在用户时区的 06:00 到 23:00 之间，不能与课程/不可用时间重叠；数据不足时默认优先 09:00-11:30、14:00-17:00、19:00-22:00。你可以增加计划，也可以删减/取消，删除旧任务请用 action=delete 并提供 taskId。" +
                       "\n（C）其他情况（提问、闲聊、道谢）：用纯文字简短回答，不要返回 JSON。" +
                       "\n上面的任务列表只是背景信息：除非用户要求，不要重复添加、重复安排或改期这些任务。不要编造用户没提到的任务、课程或作业。" +
+                      "\n本次对话之前的几轮内容会放在用户最新消息之前：请用它们理解“它”“这些”“那个计划”等说法。以 [Proposed plan] 开头的是你之前给出、用户还没有应用的计划，以 [Applied plan] 开头的则已经加入了任务列表；如果用户要求修改还没应用的计划，请返回完整的新计划（一个全新的 JSON 数组，而不是只写改动的部分）。如果用户要改的是上面任务列表里已有的任务，请对旧任务返回 action=delete（带 taskId），对新安排返回 action=add。" +
                       "\n每个 action=add 的条目都必须有 \"description\"：用一两句具体的话说明要做什么，内容来自用户在本次对话中说的话，不要写空泛的套话。" +
                       "\n返回 JSON 时，请在回复最后附上一个纯 JSON 数组，格式严格如下：\n") +
                 "[\n" +
@@ -261,10 +299,7 @@ public class AiService {
         Map<String, Object> requestBody = Map.of(
                 "model", model,
                 "temperature", 0.3,
-                "messages", List.of(
-                        Map.of("role", "system", "content", systemPrompt),
-                        Map.of("role", "user", "content", userMessage)
-                )
+                "messages", buildMessages(systemPrompt, history, userMessage)
         );
 
         try {
