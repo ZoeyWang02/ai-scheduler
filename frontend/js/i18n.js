@@ -2,6 +2,7 @@ import { state } from './state.js';
 import { getActiveAnalysisPeriod, loadLifestyleAnalysis } from './analytics.js';
 import { loadTasks } from './scheduler.js';
 import { renderChatList, renderChatStatus } from './chat.js';
+import { renderBuddyMoodBadge, renderBuddyStatus } from './buddy.js';
 
 export const translations = {
             zh: {
@@ -100,24 +101,24 @@ export const translations = {
                 chatDelete: "删除对话",
                 chatDeleteConfirm: "删除这段对话？",
                 authHint: "使用用户名或邮箱，加密码登录。",
-                btnSignInTab: "Sign in",
-                btnSignUpTab: "Sign up",
-                authUsernamePlaceholder: "Username",
-                authEmailPlaceholder: "Email",
-                authIdPlaceholder: "Username or email",
-                authPasswordPlaceholder: "Password",
-                forgotPasswordLink: "Forgot password?",
-                resetCodePlaceholder: "Verification code",
-                resetPasswordPlaceholder: "New password",
-                sendCodeBtn: "Send",
-                resetPasswordBtn: "Reset password",
-                orContinueWith: "or continue with",
+                btnSignInTab: "登录",
+                btnSignUpTab: "注册",
+                authUsernamePlaceholder: "用户名",
+                authEmailPlaceholder: "邮箱",
+                authIdPlaceholder: "用户名或邮箱",
+                authPasswordPlaceholder: "密码",
+                forgotPasswordLink: "忘记密码？",
+                resetCodePlaceholder: "验证码",
+                resetPasswordPlaceholder: "新密码",
+                sendCodeBtn: "发送",
+                resetPasswordBtn: "重置密码",
+                orContinueWith: "或使用以下方式",
                 modalTitleText: "任务详情",
                 setColorLabel: "标签颜色:",
                 saveColorBtn: "保存",
                 deleteTaskBtn: "移除任务",
                 tzPlaceholder: "例如 America/Chicago",
-                alertRequireUser: "请先 Sign in 或 Sign up，再同步或创建任务。",
+                alertRequireUser: "请先登录或注册，再同步或创建任务。",
                 alertSignUp: "注册需要用户名、邮箱和至少 6 位密码。",
                 alertSignIn: "登录需要用户名或邮箱，以及密码。",
                 alertResetEmail: "请输入邮箱获取验证码。",
@@ -408,6 +409,8 @@ export function applyLanguage() {
 
             renderChatStatus();
             renderChatList();
+            renderBuddyStatus();
+            renderBuddyMoodBadge();
 
             if (document.getElementById('authModal').style.display === 'block') {
                 if (state.currentUser) {

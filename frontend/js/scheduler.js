@@ -120,6 +120,8 @@ export function initCalendar(timezone) {
             const calendarEl = document.getElementById('calendar');
             state.calendar = new FullCalendar.Calendar(calendarEl, {
                 initialView: 'dayGridMonth',
+                // The zh-cn locale pack defaults to Monday-first; keep the existing Sunday-first grid.
+                firstDay: 0,
                 height: '100%',
                 headerToolbar: {
                     left: 'prev,next today',
