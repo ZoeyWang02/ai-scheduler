@@ -1,0 +1,32 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "plantriz",
+  "main": "src/index.ts",
+  "compatibility_date": "2025-10-01",
+
+  // The existing frontend is served as static assets. Only /api/* runs the Worker, so static files
+  // never use Worker CPU time.
+  "assets": {
+    "directory": "../frontend",
+    "run_worker_first": ["/api/*"]
+  },
+
+  // `database_id` is a placeholder for local development (`wrangler dev --local` uses a local SQLite
+  // file). Before deploying: `wrangler d1 create plantriz` and paste the id it prints here.
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "plantriz",
+      "database_id": "00000000-0000-0000-0000-000000000000",
+      "migrations_dir": "migrations"
+    }
+  ],
+
+  "vars": {
+    // Workers Free allows 10 ms of CPU per request, and password hashing is the one expensive call.
+    // Locally: 30000 ~ 4 ms, 50000 ~ 7 ms, 210000 (the Java backend's value) ~ 28 ms. Existing hashes keep
+    // verifying after a change, because each stored hash records its own iteration count.
+    // Measure on the deployed Worker before raising it; on the Paid plan it can go much higher.
+    "PBKDF2_ITERATIONS": "30000"
+  }
+}
