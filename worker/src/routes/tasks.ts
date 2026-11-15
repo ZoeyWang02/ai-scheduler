@@ -49,7 +49,7 @@ async function requireOwnedTask(db: D1Database, id: number, token: string | unde
 }
 
 taskRoutes.get("/", async (c) => {
-  const timezone = c.req.query("timezone") ?? DEFAULT_TZ;
+  const timezone = c.req.query("timezone") || DEFAULT_TZ;
   const userId = numberOrNull(c.req.query("userId"));
   try {
     assertTimeZone(timezone);
@@ -66,7 +66,7 @@ taskRoutes.get("/", async (c) => {
 taskRoutes.post("/", async (c) => {
   try {
     const user = await requireUser(c.env.DB, numberOrNull(c.req.query("userId")), c.req.query("authToken"));
-    const timezone = c.req.query("timezone") ?? DEFAULT_TZ;
+    const timezone = c.req.query("timezone") || DEFAULT_TZ;
     const body = await readBody(c);
     const due = str(body.dueDate);
     const dueDate = due ? localToUtc(due, timezone) : null;
@@ -131,7 +131,7 @@ taskRoutes.put("/:id", async (c) => {
   try {
     const task = await requireOwnedTask(c.env.DB, Number(c.req.param("id")), c.req.query("authToken"));
     const body = await readBody(c);
-    const timezone = c.req.query("timezone") ?? DEFAULT_TZ;
+    const timezone = c.req.query("timezone") || DEFAULT_TZ;
     const due = str(body.dueDate);
     const dueDate = due ? localToUtc(due, timezone) : task.due_date;
     await c.env.DB.prepare("UPDATE tasks SET title = ?, description = ?, due_date = ? WHERE id = ?")

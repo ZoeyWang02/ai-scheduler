@@ -9,7 +9,7 @@ export const courseRoutes = new Hono<{ Bindings: Env }>();
 
 courseRoutes.get("/", async (c) => {
   const userId = numberOrNull(c.req.query("userId"));
-  const timezone = c.req.query("timezone") ?? "America/Chicago";
+  const timezone = c.req.query("timezone") || "America/Chicago";
   if (userId === null || userId < 0) return c.json([]); // guests ask with userId=-1
   try {
     await requireUser(c.env.DB, userId, c.req.query("authToken"));

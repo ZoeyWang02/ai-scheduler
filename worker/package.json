@@ -4,7 +4,7 @@
   "type": "module",
   "description": "PlanTriz backend as a Cloudflare Worker + D1 (serves the frontend from ../frontend as static assets).",
   "scripts": {
-    "dev": "wrangler dev --local --port 8787",
+    "dev": "wrangler dev --local --port 8787 --host localhost:8787",
     "migrate:local": "wrangler d1 migrations apply plantriz --local",
     "test": "vitest run",
     "typecheck": "tsc --noEmit",

@@ -140,6 +140,146 @@ try {
   r = await call("POST", "/api/ai/translate", { json: { text: "hello", targetLang: "zh", authToken: user.token } });
   check("a failed translation is a 500 the UI can report", r.status === 500 && /Translation failed/.test(r.body), JSON.stringify(r));
   setMode("ok");
+  // ---- Sign in with Google (fake Google; the authorization code names the account) -----------------------------
+  console.log("\nsign in with Google");
+  const raw = (path, cookie) => fetch(BASE + path, { redirect: "manual", headers: cookie ? { Cookie: cookie } : {} });
+  const fragmentOf = (res) => {
+    const location = res.headers.get("location") ?? "";
+    const [key, ...rest] = location.split("#")[1].split("=");
+    return { key, value: decodeURIComponent(rest.join("=")), location };
+  };
+  async function googleStart() {
+    const res = await raw("/api/auth/oauth/google/start");
+    const location = new URL(res.headers.get("location"));
+    return { res, location, state: location.searchParams.get("state"), cookie: (res.headers.get("set-cookie") ?? "").split(";")[0] };
+  }
+  async function googleLogin(code) {
+    const { state, cookie } = await googleStart();
+    return raw(`/api/auth/oauth/google/callback?code=${code}&state=${encodeURIComponent(state)}`, cookie);
+  }
+
+  const start = await googleStart();
+  check("starting redirects (302) to Google with the client id, scope and a signed state", start.res.status === 302 && start.location.searchParams.get("client_id") === "mock-client-id" && start.location.searchParams.get("scope") === "openid email profile" && start.state.split(".").length === 2, start.location.href);
+  check("the redirect URI points back at this site's callback", start.location.searchParams.get("redirect_uri") === `${BASE}/api/auth/oauth/google/callback`, start.location.searchParams.get("redirect_uri"));
+  check("a cookie ties the attempt to this browser (HttpOnly, SameSite=Lax, scoped to /api/auth/oauth)", /plantriz_oauth=/.test(start.res.headers.get("set-cookie")) && /HttpOnly/.test(start.res.headers.get("set-cookie")) && /SameSite=Lax/.test(start.res.headers.get("set-cookie")) && /Path=\/api\/auth\/oauth/.test(start.res.headers.get("set-cookie")));
+
+  let res = await googleLogin("alice");
+  let frag = fragmentOf(res);
+  check("a sign-in sends the browser back to the app with the user in the URL fragment", res.status === 302 && frag.key === "oauthUser" && frag.location.startsWith(`${BASE}/index.html#oauthUser=`), frag.location.slice(0, 120));
+  const googleAlice = JSON.parse(frag.value);
+  check("a new account is created from the Google profile", googleAlice.email === "google.alice@example.com" && googleAlice.name === "Alice G" && googleAlice.username === "google.alice" && googleAlice.token && googleAlice.id, JSON.stringify(googleAlice));
+  check("the attempt's cookie is cleared afterwards", /Max-Age=0/.test(res.headers.get("set-cookie")));
+  r = await call("GET", "/api/tasks", { query: { userId: googleAlice.id, authToken: googleAlice.token, timezone: "America/Chicago" } });
+  check("the token from Google sign-in works like any other (200)", r.status === 200 && Array.isArray(r.body));
+
+  res = await googleLogin("alice");
+  const again = JSON.parse(fragmentOf(res).value);
+  check("signing in again finds the same account with a new token", again.id === googleAlice.id && again.token !== googleAlice.token);
+  r = await call("GET", "/api/tasks", { query: { userId: googleAlice.id, authToken: googleAlice.token, timezone: "America/Chicago" } });
+  check("the previous token stops working (one session at a time)", r.status === 401);
+
+  // things that must fail
+  const failsWith = async (label, response, pattern) => {
+    const f = fragmentOf(response);
+    check(label, response.status === 302 && f.key === "oauthError" && pattern.test(f.value), `${f.key}: ${f.value}`);
+  };
+  const fresh = await googleStart();
+  await failsWith("a callback without the cookie is refused (login CSRF)", await raw(`/api/auth/oauth/google/callback?code=alice&state=${encodeURIComponent(fresh.state)}`), /state is invalid/);
+  const other = await googleStart();
+  await failsWith("a state from another browser's attempt is refused", await raw(`/api/auth/oauth/google/callback?code=alice&state=${encodeURIComponent(fresh.state)}`, other.cookie), /state is invalid/);
+  const [payload, signature] = fresh.state.split(".");
+  await failsWith("a tampered state is refused", await raw(`/api/auth/oauth/google/callback?code=alice&state=${encodeURIComponent(payload + "." + signature.slice(0, -3) + "AAA")}`, fresh.cookie), /state is invalid/);
+  await failsWith("a missing state is refused", await raw("/api/auth/oauth/google/callback?code=alice", fresh.cookie), /state is invalid/);
+  await failsWith("a code Google rejects is reported", await googleLogin("not-a-code"), /Token exchange failed/);
+  await failsWith("an unverified Google address is refused", await googleLogin("unverified"), /not verified/);
+  await failsWith("the user pressing Cancel at Google is reported", await raw("/api/auth/oauth/google/callback?error=access_denied", fresh.cookie), /access_denied/);
+
+  // linking and completing accounts
+  r = await call("POST", "/api/auth/signup", { json: { username: `linked_${run}`, email: "google.linked@example.com", password: "own-password" } });
+  const passwordUser = r.body;
+  const linked = JSON.parse(fragmentOf(await googleLogin("linked")).value);
+  check("Google sign-in with an e-mail that already has a password account signs into that account", linked.id === passwordUser.id && linked.username === `linked_${run}`, JSON.stringify(linked));
+  r = await call("POST", "/api/auth/signin", { json: { identifier: `linked_${run}`, password: "own-password" } });
+  check("(and the password still works)", r.status === 200 && r.body.id === passwordUser.id);
+
+  r = await call("POST", "/api/auth/signup", { json: { username: "alice-with-password", email: "google.alice@example.com", password: "chosen-password" } });
+  check("a Google-only account can add a username and password by signing up with its e-mail", r.status === 200 && r.body.id === googleAlice.id && r.body.username === "alice-with-password", JSON.stringify(r));
+  r = await call("POST", "/api/auth/signin", { json: { identifier: "alice-with-password", password: "chosen-password" } });
+  check("(and then signs in with it)", r.status === 200);
+
+  const jane1 = JSON.parse(fragmentOf(await googleLogin("jane")).value);
+  const jane2 = JSON.parse(fragmentOf(await googleLogin("jane2")).value);
+  check("two Google users with the same local part get different usernames", jane1.username === "jane" && jane2.username === "jane1", `${jane1.username} / ${jane2.username}`);
+
+  r = await call("POST", "/api/auth/oauth/google/start");
+  check("the POST variant returns the Google URL as JSON", r.status === 200 && /google\/auth\?/.test(r.body.authorizationUrl), JSON.stringify(r));
+  r = await call("POST", "/api/auth/oauth/apple/start");
+  check("Apple and SSO are not available (501)", r.status === 501);
+  r = await call("POST", "/api/auth/oauth/facebook/start");
+  check("an unknown provider is a 400", r.status === 400);
+
+  // ---- Password reset by e-mail (fake e-mail API) ---------------------------------------------------------------
+  console.log("\npassword reset");
+  const emails = stack.emails;
+  const codeFrom = (mail) => /verification code is (\d{6})/.exec(mail.text)[1];
+  const signup = async (name) => (await call("POST", "/api/auth/signup", { json: { username: `${name}_${run}`, email: `${name}_${run}@example.com`, password: "old-password" } })).body;
+  const reset = (email, code, password = "new-password") => call("POST", "/api/auth/password-reset/confirm", { json: { email, code, password } });
+
+  const frank = await signup("frank");
+  const before = emails.length;
+  r = await call("POST", "/api/auth/password-reset/request", { json: { email: `nobody_${run}@example.com` } });
+  check("asking for a code for an unknown address looks exactly like success (200)", r.status === 200 && /sent if the email exists/.test(r.body.message), JSON.stringify(r));
+  check("(but no e-mail is sent)", emails.length === before);
+  r = await call("POST", "/api/auth/password-reset/request", { json: {} });
+  check("an e-mail address is required (400)", r.status === 400);
+
+  r = await call("POST", "/api/auth/password-reset/request", { json: { email: `FRANK_${run}@Example.com` } });
+  check("a known address gets the same answer (200, case-insensitive)", r.status === 200 && /sent if the email exists/.test(r.body.message), JSON.stringify(r));
+  const mail = emails.at(-1);
+  check("one e-mail goes out through the e-mail API, from the configured sender, to the user", emails.length === before + 1 && mail.to[0] === `frank_${run}@example.com` && mail.from === "PlanTriz <noreply@plantriz.test>" && mail.auth === "Bearer mock-resend-key", JSON.stringify(mail).slice(0, 200));
+  check("it carries a 6-digit code, in English and Chinese", /verification code is \d{6}/.test(mail.text) && /验证码是 \d{6}/.test(mail.text) && /10 minutes/.test(mail.text));
+  const frankCode = codeFrom(mail);
+
+  await call("POST", "/api/auth/password-reset/request", { json: { email: `frank_${run}@example.com` } });
+  check("asking again within a minute does not send another e-mail", emails.length === before + 1);
+
+  r = await reset(`frank_${run}@example.com`, frankCode === "000000" ? "000001" : "000000");
+  check("a wrong code is refused (400)", r.status === 400 && /Invalid or expired/.test(r.body.message), JSON.stringify(r));
+  r = await reset(`frank_${run}@example.com`, frankCode, "123");
+  check("a new password must be at least 6 characters (400)", r.status === 400);
+  r = await reset(`frank_${run}@example.com`, frankCode);
+  check("the right code sets the new password (200)", r.status === 200 && /Password reset/.test(r.body.message), JSON.stringify(r));
+  r = await call("GET", "/api/tasks", { query: { userId: frank.id, authToken: frank.token, timezone: "America/Chicago" } });
+  check("every existing session is signed out", r.status === 401);
+  r = await call("POST", "/api/auth/signin", { json: { identifier: `frank_${run}`, password: "old-password" } });
+  check("the old password no longer works", r.status === 401);
+  r = await call("POST", "/api/auth/signin", { json: { identifier: `frank_${run}`, password: "new-password" } });
+  check("the new password works", r.status === 200 && r.body.id === frank.id);
+  r = await reset(`frank_${run}@example.com`, frankCode, "another-password");
+  check("a code can only be used once (400)", r.status === 400);
+
+  const grace = await signup("grace");
+  await call("POST", "/api/auth/password-reset/request", { json: { email: `grace_${run}@example.com` } });
+  const graceCode = codeFrom(emails.at(-1));
+  const wrong = graceCode === "111111" ? "222222" : "111111";
+  for (let i = 0; i < 5; i++) await reset(`grace_${run}@example.com`, wrong);
+  r = await reset(`grace_${run}@example.com`, graceCode);
+  check("after 5 wrong guesses even the right code is refused (400)", r.status === 400, JSON.stringify(r));
+  r = await call("POST", "/api/auth/signin", { json: { identifier: `grace_${run}`, password: "old-password" } });
+  check("(and the password was not changed)", r.status === 200);
+
+  const other2 = await signup("heidi");
+  await call("POST", "/api/auth/password-reset/request", { json: { email: `heidi_${run}@example.com` } });
+  const heidiCode = codeFrom(emails.at(-1));
+  r = await reset(`grace_${run}@example.com`, heidiCode);
+  check("a code is only good for the address it was sent to (400)", r.status === 400);
+
+  await googleLogin("resetme");
+  await call("POST", "/api/auth/password-reset/request", { json: { email: "google.resetme@example.com" } });
+  r = await reset("google.resetme@example.com", codeFrom(emails.at(-1)), "first-password");
+  check("an account made with Google can set a password this way (200)", r.status === 200, JSON.stringify(r));
+  r = await call("POST", "/api/auth/signin", { json: { identifier: "google.resetme@example.com", password: "first-password" } });
+  check("(and then sign in with it)", r.status === 200);
 } catch (error) {
   failures.push(`the test crashed: ${error.message}`);
   console.log("  FAIL the test crashed:", error);

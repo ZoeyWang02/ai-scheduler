@@ -26,16 +26,52 @@ export const CHAT_PLAN = JSON.stringify([
 
 const npx = (args) => spawnSync("npx", args, { shell: true, encoding: "utf8", env: { ...process.env, CI: "true" } });
 
-/** Returns { base, seen, setMode, stop }. mode: ok | prose | busy | broken.
- *  `seen` has { model, system, user, messages } for every LLM request (`messages` is the whole list). */
+/** Google accounts the fake sign-in knows, by authorization code (the test passes the code it wants). */
+export const GOOGLE_PROFILES = {
+  alice: { email: "google.alice@example.com", name: "Alice G", email_verified: true },
+  linked: { email: "google.linked@example.com", name: "Linked Person", email_verified: true },
+  jane: { email: "jane@example.com", name: "Jane One", email_verified: true },
+  jane2: { email: "jane@other.example.com", name: "Jane Two", email_verified: true },
+  resetme: { email: "google.resetme@example.com", name: "Reset Me", email_verified: true },
+  unverified: { email: "unverified@example.com", name: "Not Verified", email_verified: false },
+};
+
+/** Returns { base, seen, emails, setMode, stop }. mode: ok | prose | busy | broken.
+ *  `seen` has { model, system, user, messages } for every LLM request (`messages` is the whole list);
+ *  `emails` has every message the Worker sent through the fake e-mail API. */
 export async function startMockStack({ mockPort = DEFAULT_MOCK_PORT, workerPort = DEFAULT_WORKER_PORT, state = ".wrangler/mock-stack-state" } = {}) {
   let mode = "ok";
   const seen = [];
+  const emails = [];
 
   const mock = http.createServer((req, res) => {
     let body = "";
     req.on("data", (chunk) => (body += chunk));
     req.on("end", () => {
+      const json = (status, payload) => { res.writeHead(status, { "Content-Type": "application/json" }); res.end(JSON.stringify(payload)); };
+      // --- fake Google: the authorization code is the name of the account to sign in as ---
+      if (req.url.startsWith("/google/auth")) {
+        // The "consent screen": sends the browser straight back, signed in as "alice" (or ?login_hint=<name>).
+        const q = new URL(req.url, "http://mock").searchParams;
+        const back = new URL(q.get("redirect_uri"));
+        back.searchParams.set("code", q.get("login_hint") || "alice");
+        back.searchParams.set("state", q.get("state") ?? "");
+        res.writeHead(302, { Location: back.href });
+        return res.end();
+      }
+      if (req.url.startsWith("/google/token")) {
+        const code = new URLSearchParams(body).get("code") ?? "";
+        return GOOGLE_PROFILES[code] ? json(200, { access_token: `at-${code}` }) : json(400, { error: "invalid_grant" });
+      }
+      if (req.url.startsWith("/google/userinfo")) {
+        const code = (req.headers.authorization ?? "").replace("Bearer at-", "");
+        return GOOGLE_PROFILES[code] ? json(200, GOOGLE_PROFILES[code]) : json(401, { error: "bad token" });
+      }
+      // --- fake e-mail API (Resend) ---
+      if (req.url.startsWith("/email/emails")) {
+        emails.push({ auth: req.headers.authorization, ...JSON.parse(body || "{}") });
+        return json(200, { id: `mail-${emails.length}` });
+      }
       const parsed = JSON.parse(body || "{}");
       const messages = parsed.messages ?? [];
       const [system, user] = messages;
@@ -61,9 +97,16 @@ export async function startMockStack({ mockPort = DEFAULT_MOCK_PORT, workerPort 
   if (migrate.status !== 0) throw new Error("migration failed:\n" + migrate.stdout + migrate.stderr);
 
   const worker = spawn("npx", [
-    "wrangler", "dev", "--local", "--port", String(workerPort), "--persist-to", state,
+    "wrangler", "dev", "--local", "--port", String(workerPort), "--host", `127.0.0.1:${workerPort}`, "--persist-to", state,
     "--var", `LLM_API_URL:http://127.0.0.1:${mockPort}/v1/chat/completions`,
     "--var", "LLM_API_KEY:test-key", "--var", "LLM_MODEL:mock-big", "--var", "LLM_FALLBACK_MODEL:mock-small",
+    "--var", "GOOGLE_CLIENT_ID:mock-client-id", "--var", "GOOGLE_CLIENT_SECRET:mock-client-secret",
+    "--var", `GOOGLE_AUTH_URL:http://127.0.0.1:${mockPort}/google/auth`,
+    "--var", `GOOGLE_TOKEN_URL:http://127.0.0.1:${mockPort}/google/token`,
+    "--var", `GOOGLE_USERINFO_URL:http://127.0.0.1:${mockPort}/google/userinfo`,
+    // (quoted: the arguments go through a shell, which would read < and > as redirections)
+    "--var", "RESEND_API_KEY:mock-resend-key", "--var", '"EMAIL_FROM:PlanTriz <noreply@plantriz.test>"',
+    "--var", `EMAIL_API_URL:http://127.0.0.1:${mockPort}/email/emails`,
   ], { shell: true, stdio: "ignore", env: { ...process.env, CI: "true" } });
 
   const base = `http://127.0.0.1:${workerPort}`;
@@ -73,7 +116,7 @@ export async function startMockStack({ mockPort = DEFAULT_MOCK_PORT, workerPort 
   };
 
   for (let i = 0; i < 120; i++) {
-    try { if ((await fetch(`${base}/api/ai/status`)).ok) return { base, seen, setMode: (m) => { mode = m; }, stop }; } catch { /* not up yet */ }
+    try { if ((await fetch(`${base}/api/ai/status`)).ok) return { base, seen, emails, setMode: (m) => { mode = m; }, stop }; } catch { /* not up yet */ }
     await new Promise((r) => setTimeout(r, 1000));
   }
   stop();

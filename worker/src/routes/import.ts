@@ -33,7 +33,7 @@ importRoutes.post("/preview", async (c) => {
     if (/\.(pdf|docx?|pptx?|xlsx?)$/i.test(file.name)) {
       return fail(c, 400, "PDF and Word files are read in the browser and sent as text to /api/import/preview-text.");
     }
-    const parsed = await parseStructuredFile(c.env, file.name || "upload", await file.text(), c.req.query("timezone") ?? DEFAULT_TZ);
+    const parsed = await parseStructuredFile(c.env, file.name || "upload", await file.text(), c.req.query("timezone") || DEFAULT_TZ);
     return c.json(previewForClient(await createPreview(c.env.DB, userId, file.name || "upload", parsed)));
   } catch (e) {
     return fail(c, 400, `Import preview failed: ${(e as Error).message}`);
@@ -58,7 +58,7 @@ importRoutes.post("/preview-text", async (c) => {
   if (!isLlmConfigured(c.env)) return fail(c, 503, "The AI service is not configured, so documents cannot be read.");
 
   try {
-    const parsed = await parseDocumentText(c.env, fileName, text, c.req.query("timezone") ?? DEFAULT_TZ);
+    const parsed = await parseDocumentText(c.env, fileName, text, c.req.query("timezone") || DEFAULT_TZ);
     return c.json(previewForClient(await createPreview(c.env.DB, userId, fileName, parsed)));
   } catch (e) {
     if (e instanceof LlmError) {

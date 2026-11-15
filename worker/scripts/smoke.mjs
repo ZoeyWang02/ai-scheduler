@@ -199,6 +199,27 @@ console.log("\ncourses and other endpoints");
   check("an unknown API path is a JSON 404", r.status === 404 && r.body.message === "Not found");
 }
 
+console.log("\nsign-in options (these checks expect a dev server without Google or e-mail settings; smoke:ai covers the configured case)");
+{
+  const unconfigured = (await fetch(`${BASE}/api/auth/oauth/google/start`, { redirect: "manual" })).status === 501;
+  if (!unconfigured) {
+    console.log("  skip Google / password reset: this server has them configured");
+  } else {
+    let r = await call("POST", "/api/auth/password-reset/request", { json: { email: "someone@example.com" } });
+    check("password reset without an e-mail service says so (501)", r.status === 501 && /not set up/.test(r.body.message), JSON.stringify(r));
+    r = await call("POST", "/api/auth/oauth/google/start");
+    check("Google sign-in without credentials says so (501)", r.status === 501 && /not configured/.test(r.body.message), JSON.stringify(r));
+    const callback = await fetch(`${BASE}/api/auth/oauth/google/callback?code=x&state=y`, { redirect: "manual" });
+    check("a Google callback without credentials returns to the app with an error", callback.status === 302 && /#oauthError=/.test(callback.headers.get("location") ?? ""), String(callback.status));
+  }
+  let r = await call("POST", "/api/auth/password-reset/confirm", { json: { email: "someone@example.com", code: "123456", password: "abcdef" } });
+  check("a reset code nobody asked for is refused (400)", r.status === 400 && /Invalid or expired/.test(r.body.message), JSON.stringify(r));
+  r = await call("POST", "/api/auth/password-reset/confirm", { json: { email: "someone@example.com" } });
+  check("a reset needs the code and a new password (400)", r.status === 400);
+  r = await call("GET", "/api/tasks", { query: { timezone: "", userId: -1 } });
+  check("an empty time zone falls back to the default instead of failing", r.status === 200 || r.status === 401, JSON.stringify(r));
+}
+
 console.log("\nimport");
 {
   const carol = (await signUp("carol")).body;

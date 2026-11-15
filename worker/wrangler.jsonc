@@ -12,7 +12,8 @@
   },
 
   // `database_id` is a placeholder for local development (`wrangler dev --local` uses a local SQLite
-  // file). Before deploying: `wrangler d1 create plantriz` and paste the id it prints here.
+  // file). Before deploying: `wrangler d1 create plantriz` and paste the id it prints here
+  // (see DEPLOY.md).
   "d1_databases": [
     {
       "binding": "DB",
@@ -22,11 +23,28 @@
     }
   ],
 
+  // The site's address. The zone (plantriz.com) must be on the same Cloudflare account. A custom domain
+  // needs an exact hostname and cannot be created while the hostname has a CNAME record; see DEPLOY.md
+  // for the apex (plantriz.com) redirect. The *.workers.dev address keeps working next to it.
+  "routes": [
+    { "pattern": "www.plantriz.com", "custom_domain": true }
+  ],
+
+  // No persistent logs on purpose: Workers Logs keeps every request's URL, and this API carries the session
+  // token in the query string (?authToken=...). Check CPU time with `wrangler tail` (live, not stored) or the
+  // dashboard's Metrics tab instead (see DEPLOY.md). Move the token to a header before enabling logs.
+
   "vars": {
     // Workers Free allows 10 ms of CPU per request, and password hashing is the one expensive call.
     // Locally: 30000 ~ 4 ms, 50000 ~ 7 ms, 210000 (the Java backend's value) ~ 28 ms. Existing hashes keep
     // verifying after a change, because each stored hash records its own iteration count.
     // Measure on the deployed Worker before raising it; on the Paid plan it can go much higher.
     "PBKDF2_ITERATIONS": "30000"
+
+    // Secrets, never put these here:  wrangler secret put <NAME>
+    //   LLM_API_KEY, GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, RESEND_API_KEY
+    // Plain settings you may add as vars once known:
+    //   EMAIL_FROM   "PlanTriz <noreply@plantriz.com>"  (an address on a domain verified with Resend)
+    //   LLM_MODEL, LLM_FALLBACK_MODEL, LLM_API_URL      (defaults match the Java backend)
   }
 }

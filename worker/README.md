@@ -12,7 +12,7 @@ The Java backend is unchanged and remains the reference for local development.
 | 1 | Sign-up / sign-in, preferences, time zone, tasks (create, edit, colour, complete, delete), course list/delete, Study Buddy state, time-zone list, static frontend | done, tested |
 | 2 | Import: `.ics` timetables, Canvas / Coursera JSON, unknown JSON, **PDF / Word / text documents read by the AI**, preview + confirm, and an **import button in the chat** | done, tested |
 | 3 | AI chat (with the conversation so far), translate, study-rhythm analysis | done, tested (also with the real model) |
-| 4 | Google sign-in, password reset by e-mail, custom domain, deploy | not started |
+| 4 | Sign in with Google, password reset by e-mail, custom domain `www.plantriz.com`, deploy guide | code done and tested; the deploy itself needs your Cloudflare login, see [DEPLOY.md](DEPLOY.md) |
 
 Only the old direct-upload endpoints (`/api/tasks/upload/*`, `/api/courses/upload/ics`; the UI no longer uses them) answer
 `501`. See [`../TODO.md`](../TODO.md) for what is left.
@@ -24,6 +24,8 @@ cd worker
 npm install
 npm run migrate:local     # creates the local D1 database from migrations/
 npm run dev               # http://localhost:8787  (frontend + API)
+                          # (--host localhost:8787 keeps the Worker from believing it is at www.plantriz.com,
+                          #  the route in wrangler.jsonc, which would break the Google sign-in redirect locally)
 ```
 
 Tests:
@@ -73,7 +75,13 @@ with checkboxes, and adds nothing to the calendar until **Import selected** is p
   `PBKDF2_ITERATIONS` in `wrangler.jsonc`. The stored format is the same (`pbkdf2$iterations$salt$hash`)
   and every hash records its own count, so raising it later does not lock anyone out. Measure on the
   deployed Worker before raising it; the Paid plan removes the 10 ms limit.
-- **No password reset by e-mail yet.** The Java backend only printed the code to its log.
+- **Password reset sends a real e-mail** (Resend's HTTP API; the Java backend only printed the code to its log).
+  Codes are 6 digits, valid 10 minutes, one a minute per address, at most 5 wrong guesses; only a hash is stored;
+  the answer is the same for unknown addresses; a successful reset signs the account out everywhere. Without
+  e-mail settings the request answers 501 (set `PASSWORD_RESET_DEV_LOG=true` in `.dev.vars` to print codes locally).
+- **Sign in with Google is stateless.** The OAuth `state` is a signed, expiring token and a nonce cookie ties the
+  callback to the browser that started it; an address Google has not verified is refused. Needs `GOOGLE_CLIENT_ID`
+  and `GOOGLE_CLIENT_SECRET`.
 - **A better `.ics` reader.** Folded lines, escaped text, COUNT, INTERVAL and EXDATE are handled; the Java
   version ignored them. Occurrences are computed in the event's own time zone.
 - **Chat and analysis follow the Java prompt word for word**, with these differences: tasks in the prompt are

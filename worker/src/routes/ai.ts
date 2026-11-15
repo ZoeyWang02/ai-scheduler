@@ -57,7 +57,7 @@ analyticsRoutes.get("/lifestyle", async (c) => {
   try {
     if (userId !== null) await requireUser(c.env.DB, userId, c.req.query("authToken"));
     const tasks = userId === null ? [] : await tasksForUser(c.env.DB, userId);
-    return c.json(analyzeLifestyle(tasks, c.req.query("timezone") ?? "America/Chicago", c.req.query("period"), c.req.query("lang") ?? "en"));
+    return c.json(analyzeLifestyle(tasks, c.req.query("timezone") || "America/Chicago", c.req.query("period"), c.req.query("lang") ?? "en"));
   } catch (e) {
     if (e instanceof AuthError) return c.json({ message: e.message }, 401);
     if (e instanceof RangeError) return c.json({ message: "Unknown timezone" }, 400);
