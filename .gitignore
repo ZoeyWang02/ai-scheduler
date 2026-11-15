@@ -38,3 +38,6 @@ build/
 app.log
 app.err.log
 app.pid
+
+### Demo recordings ###
+demo/
