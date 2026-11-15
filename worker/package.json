@@ -8,7 +8,8 @@
     "migrate:local": "wrangler d1 migrations apply plantriz --local",
     "test": "vitest run",
     "typecheck": "tsc --noEmit",
-    "smoke": "node scripts/smoke.mjs"
+    "smoke": "node scripts/smoke.mjs",
+    "smoke:ai": "node scripts/smoke-ai.mjs"
   },
   "dependencies": {
     "hono": "^4.13.18"

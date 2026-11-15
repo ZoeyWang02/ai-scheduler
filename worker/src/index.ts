@@ -1,9 +1,11 @@
 import { Hono } from "hono";
 
 import type { Env } from "./env";
+import { aiRoutes, analyticsRoutes } from "./routes/ai";
 import { authRoutes } from "./routes/auth";
 import { buddyRoutes } from "./routes/buddy";
 import { courseRoutes } from "./routes/courses";
+import { importRoutes } from "./routes/import";
 import { taskRoutes } from "./routes/tasks";
 
 const app = new Hono<{ Bindings: Env }>();
@@ -12,6 +14,7 @@ app.route("/api/auth", authRoutes);
 app.route("/api/tasks", taskRoutes);
 app.route("/api/courses", courseRoutes);
 app.route("/api/buddy", buddyRoutes);
+app.route("/api/import", importRoutes);
 
 /** Same list as the Java TimezoneController: "Continent/City" ids only. */
 app.get("/api/timezones", (c) => {
@@ -23,14 +26,13 @@ app.get("/api/timezones", (c) => {
   return c.json(list);
 });
 
-app.get("/api/ai/status", (c) => c.json({ configured: Boolean(c.env.LLM_API_KEY) }));
+app.route("/api/ai", aiRoutes);
+app.route("/api/analytics", analyticsRoutes);
 
-// Not ported yet (phases 2 and 3). Say so plainly instead of a confusing 404.
+// Not ported. The old direct-upload endpoints (/api/tasks/upload/*, /api/courses/upload/ics) are no longer
+// used by the UI: it goes through /api/import/preview and /confirm. Say so plainly instead of a bare 404.
 const notYet = (c: { json: (body: unknown, status: 501) => Response }) =>
-  c.json({ message: "This feature is not available in the Worker build yet." }, 501);
-app.all("/api/ai/*", notYet);
-app.all("/api/import/*", notYet);
-app.all("/api/analytics/*", notYet);
+  c.json({ message: "This feature is not available in the Worker build." }, 501);
 app.post("/api/courses/upload/ics", notYet);
 app.post("/api/tasks/upload/:type", notYet);
 

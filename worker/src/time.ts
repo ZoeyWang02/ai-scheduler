@@ -76,6 +76,52 @@ export function localToUtc(local: string, timeZone: string): string {
   return msToStored(utc);
 }
 
+/** Many local -> UTC conversions in one zone, cheaply. A timetable expands to hundreds of sessions and
+ *  the free plan allows ~10 ms of CPU, so the zone offset is looked up once per calendar day instead
+ *  of per call (about 10 us each). Days near a daylight-saving change fall back to the exact path. */
+export function makeZoneConverter(timeZone: string): (p: LocalParts) => string {
+  const DAY = 86_400_000;
+  const MARGIN = 14 * 3_600_000;
+  const dayOffsets = new Map<string, number | null>();
+  const offsetForDay = (p: LocalParts): number | null => {
+    const key = `${p.y}-${p.mo}-${p.d}`;
+    let value = dayOffsets.get(key);
+    if (value === undefined) {
+      const dayStart = Date.UTC(p.y, p.mo - 1, p.d);
+      const before = offsetMs(dayStart - MARGIN, timeZone);
+      const after = offsetMs(dayStart + DAY + MARGIN, timeZone);
+      value = before === after ? before : null; // null: the offset changes around this day
+      dayOffsets.set(key, value);
+    }
+    return value;
+  };
+  return (p) => {
+    const offset = offsetForDay(p);
+    if (offset === null) return localToUtc(formatStored(p), timeZone);
+    return msToStored(Date.UTC(p.y, p.mo - 1, p.d, p.h, p.mi, p.s) - offset);
+  };
+}
+
+/** Many UTC -> local conversions in one zone (the rhythm analysis looks at every task). The zone offset is
+ *  looked up once per UTC day; a day on which it changes falls back to the exact path. */
+export function makeUtcToLocal(timeZone: string): (stored: string) => LocalParts {
+  const DAY = 86_400_000;
+  const offsets = new Map<number, number | null>();
+  return (stored) => {
+    const ms = storedToMs(stored);
+    const day = Math.floor(ms / DAY);
+    let offset = offsets.get(day);
+    if (offset === undefined) {
+      const start = offsetMs(day * DAY, timeZone);
+      offset = start === offsetMs((day + 1) * DAY - 1000, timeZone) ? start : null;
+      offsets.set(day, offset);
+    }
+    if (offset === null) return zoneFields(ms, timeZone);
+    const d = new Date(ms + offset);
+    return { y: d.getUTCFullYear(), mo: d.getUTCMonth() + 1, d: d.getUTCDate(), h: d.getUTCHours(), mi: d.getUTCMinutes(), s: d.getUTCSeconds() };
+  };
+}
+
 /** UTC storage text -> the wall-clock time in `timeZone`, as storage-style text. */
 export function utcToLocal(stored: string, timeZone: string): string {
   return formatStored(zoneFields(storedToMs(stored), timeZone));

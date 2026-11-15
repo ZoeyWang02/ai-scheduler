@@ -166,12 +166,120 @@ console.log("\ncourses and other endpoints");
   r = await call("GET", "/api/timezones");
   check("time zone list has continent/city ids only", Array.isArray(r.body) && r.body.includes("America/Chicago") && !r.body.some((z) => z.startsWith("Etc/") || !z.includes("/")));
 
-  r = await call("POST", "/api/ai/chat", { json: { message: "hi" } });
-  check("AI chat says it is not available yet (501), not a 404", r.status === 501, JSON.stringify(r));
-  r = await call("POST", "/api/import/preview");
-  check("import says it is not available yet (501)", r.status === 501);
+  // (the chat itself is covered by smoke-ai.mjs, with a fake LLM; here only what needs no model)
+  r = await call("POST", "/api/ai/chat", { json: { message: "   " } });
+  check("a chat message must not be empty (400)", r.status === 400 && /non-empty 'message'/.test(r.body), JSON.stringify(r));
+  r = await call("POST", "/api/ai/chat", { json: { message: "hi", userId: String(alice.id), authToken: "wrong-token" } });
+  check("chat with a bad token is rejected (401)", r.status === 401 && /Authentication failed/.test(r.body), JSON.stringify(r));
+  r = await call("POST", "/api/ai/translate", { json: { text: "hello", targetLang: "zh", authToken: "wrong-token" } });
+  check("translate needs a valid token (401)", r.status === 401);
+  r = await call("POST", "/api/ai/translate", { json: { text: "", authToken: alice.token } });
+  check("translate needs some text (400)", r.status === 400);
+
+  // study-rhythm analysis: tasks created above ran out, so make a few at known local hours
+  const rhythm = (await signUp("rhythm")).body;
+  const rq = { userId: rhythm.id, authToken: rhythm.token };
+  const soon = new Date(Date.now() + 2 * 86_400_000).toISOString().slice(0, 10);
+  for (const [title, time, desc] of [["Morning A", "09:00", "Estimated: 2 h"], ["Morning B", "10:30", ""], ["Evening", "21:00", ""]]) {
+    await call("POST", "/api/tasks", { query: { ...rq, timezone: "America/Chicago" }, json: { title, description: desc, dueDate: `${soon}T${time}:00` } });
+  }
+  r = await call("GET", "/api/analytics/lifestyle", { query: { ...rq, timezone: "America/Chicago", period: "week", lang: "en" } });
+  check("the rhythm analysis counts the tasks by local hour", r.status === 200 && r.body.totalTasks === 3 && r.body.timeBuckets[0].count === 2 && r.body.timeBuckets[2].count === 1, JSON.stringify(r.body).slice(0, 300));
+  check("it finds the peak window, the rhythm and the focus style", r.body.peakWindow === "Morning 5-12" && r.body.rhythmLabel === "Morning Bird" && r.body.focusStyle === "Steady Rhythm", JSON.stringify([r.body.peakWindow, r.body.rhythmLabel, r.body.focusStyle]));
+  check("hours come from the estimate in the description", r.body.hourlyStudy.length === 24 && r.body.hourlyStudy[9].hours === 2 && r.body.hourlyStudy[10].hours === 1, JSON.stringify(r.body.hourlyStudy.slice(9, 11)));
+  r = await call("GET", "/api/analytics/lifestyle", { query: { ...rq, timezone: "America/Chicago", period: "day", lang: "zh" } });
+  check("the Chinese analysis uses Chinese labels", r.status === 200 && r.body.timeBuckets[0].label === "早晨 5-12", JSON.stringify(r.body).slice(0, 200));
+  r = await call("GET", "/api/analytics/lifestyle", { query: { timezone: "America/Chicago", lang: "en" } });
+  check("a guest gets an empty analysis", r.status === 200 && r.body.totalTasks === 0 && r.body.peakWindow === "No Data", JSON.stringify(r.body).slice(0, 200));
+  r = await call("GET", "/api/analytics/lifestyle", { query: { userId: rhythm.id, authToken: "bad" } });
+  check("the analysis of someone's tasks needs their token (401)", r.status === 401);
+  r = await call("GET", "/api/analytics/lifestyle", { query: { ...rq, timezone: "Mars/Olympus" } });
+  check("an unknown time zone is a 400", r.status === 400);
   r = await call("GET", "/api/does-not-exist");
   check("an unknown API path is a JSON 404", r.status === 404 && r.body.message === "Not found");
+}
+
+console.log("\nimport");
+{
+  const carol = (await signUp("carol")).body;
+  const q = { userId: carol.id, authToken: carol.token, timezone: "America/Chicago" };
+
+  async function upload(name, content, type, query = q) {
+    const form = new FormData();
+    form.append("file", new Blob([content], { type }), name);
+    const qs = new URLSearchParams(query).toString();
+    const res = await fetch(`${BASE}/api/import/preview?${qs}`, { method: "POST", body: form });
+    const text = await res.text();
+    let body = text;
+    try { body = JSON.parse(text); } catch { /* text */ }
+    return { status: res.status, body };
+  }
+  const confirm = (importId, itemIds) => call("POST", "/api/import/confirm", { query: { userId: carol.id, authToken: carol.token }, json: { importId, itemIds } });
+
+  // a timetable: CS 225 on Mon/Wed/Fri at 10:00 Chicago, one week
+  const ics = [
+    "BEGIN:VCALENDAR", "VERSION:2.0", "BEGIN:VEVENT", "SUMMARY:CS 225 Data Structures", "LOCATION:Siebel 1404",
+    "DTSTART;TZID=America/Chicago:20271115T100000", "DTEND;TZID=America/Chicago:20271115T105000",
+    "RRULE:FREQ=WEEKLY;BYDAY=MO,WE,FR;UNTIL=20271119", "END:VEVENT", "END:VCALENDAR",
+  ].join("\r\n");
+
+  let r = await upload("term.ics", ics, "text/calendar");
+  check("a timetable previews as course sessions (200)", r.status === 200 && r.body.parser === "ics-calendar" && r.body.items.length === 3, JSON.stringify(r.body).slice(0, 300));
+  check("each session is new, with UTC start/end and the location", r.body.items.every((i) => i.kind === "course" && i.status === "new" && i.location === "Siebel 1404") && r.body.items[0].start === "2027-11-15T16:00" && r.body.items[0].end === "2027-11-15T16:50", JSON.stringify(r.body.items[0]));
+  check("server-only fields are not sent to the browser", r.body.items.every((i) => !("importKey" in i)));
+  const icsPreview = r.body;
+
+  r = await confirm(icsPreview.importId, icsPreview.items.slice(0, 2).map((i) => i.id));
+  check("confirming two of three imports exactly two", r.status === 200 && r.body.coursesCreated === 2 && r.body.skipped === 1, JSON.stringify(r));
+
+  r = await call("GET", "/api/courses", { query: q });
+  check("the sessions appear in the course list in local time", r.body.length === 2 && r.body[0].start === "2027-11-15T10:00" && r.body[0].end === "2027-11-15T10:50", JSON.stringify(r.body));
+
+  r = await confirm(icsPreview.importId, []);
+  check("a preview can only be confirmed once (400, expired)", r.status === 400 && /expired/i.test(r.body.message), JSON.stringify(r));
+
+  r = await upload("term.ics", ics, "text/calendar");
+  check("importing the same timetable again marks two sessions as already there", r.body.items.filter((i) => i.status === "duplicate").length === 2 && r.body.items.filter((i) => i.status === "new").length === 1, JSON.stringify(r.body.items.map((i) => i.status)));
+  r = await confirm(r.body.importId, null);
+  check("confirming everything adds only the missing session", r.body.coursesCreated === 1 && r.body.duplicates === 2, JSON.stringify(r));
+
+  // Canvas assignments: first import, then the same assignment with a moved deadline
+  const canvas = (due) => JSON.stringify([{ name: "Homework", assignments: [
+    { id: 1, name: "HW 1", due_at: due, html_url: "https://canvas.example/c/1/a/1" },
+    { id: 2, name: "HW 2", due_at: "2020-01-01T00:00:00Z", html_url: "https://canvas.example/c/1/a/2" },
+  ] }]);
+  r = await upload("canvas.json", canvas("2027-11-20T06:00:00Z"), "application/json");
+  check("Canvas assignments preview as tasks", r.status === 200 && r.body.parser === "canvas-json" && r.body.items.length === 2, JSON.stringify(r.body).slice(0, 200));
+  check("an assignment already past is flagged", r.body.items[1].past === true && r.body.items[0].past === false);
+  r = await confirm(r.body.importId, [r.body.items[0].id]);
+  check("confirm creates the chosen assignment", r.status === 200 && r.body.tasksCreated === 1 && r.body.tasks === 1, JSON.stringify(r));
+
+  r = await upload("canvas.json", canvas("2027-11-27T06:00:00Z"), "application/json");
+  check("the same assignment with a new deadline is an update, showing the old one", r.body.items[0].status === "update" && r.body.items[0].existingDueDate === "2027-11-20T06:00", JSON.stringify(r.body.items[0]));
+  r = await confirm(r.body.importId, [r.body.items[0].id]);
+  check("confirming an update changes only the deadline", r.body.tasksUpdated === 1 && r.body.tasksCreated === 0, JSON.stringify(r));
+  r = await call("GET", "/api/tasks", { query: q });
+  check("the task shows the new deadline in local time", r.body.filter((t) => t.title === "HW 1").length === 1 && r.body.find((t) => t.title === "HW 1").dueDate === "2027-11-27T00:00", JSON.stringify(r.body.map((t) => [t.title, t.dueDate])));
+
+  // limits and permissions
+  r = await upload("x.json", "{}", "application/json", { ...q, authToken: "wrong" });
+  check("a bad token cannot preview (401)", r.status === 401);
+  r = await upload("empty.ics", "", "text/calendar");
+  check("an empty file is rejected (400)", r.status === 400);
+  r = await upload("notes.txt", "just some words", "text/plain");
+  check("a file that is not .ics or JSON says so (400)", r.status === 400 && /not a calendar/.test(r.body.message), JSON.stringify(r));
+  r = await upload("syllabus.pdf", "%PDF-1.4", "application/pdf");
+  check("a PDF sent to the structured endpoint is pointed to the document import (400)", r.status === 400 && /preview-text/.test(r.body.message), JSON.stringify(r));
+  r = await upload("big.json", "[" + "0,".repeat(1_100_000) + "0]", "application/json");
+  check("a file over 2 MB is rejected (413)", r.status === 413, `status ${r.status}`);
+
+  const dave = (await signUp("dave")).body;
+  const forDave = await upload("term.ics", ics, "text/calendar", { userId: dave.id, authToken: dave.token, timezone: "America/Chicago" });
+  r = await call("POST", "/api/import/confirm", { query: { userId: carol.id, authToken: carol.token }, json: { importId: forDave.body.importId, itemIds: null } });
+  check("one user cannot confirm another user's preview (400)", r.status === 400, JSON.stringify(r));
+
+  r = await call("POST", "/api/import/preview-text", { query: q, json: { fileName: "a.pdf", text: "   " } });
+  check("a document with no text is rejected (400)", r.status === 400);
 }
 
 console.log("\nfrontend (static assets)");
