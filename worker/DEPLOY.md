@@ -53,7 +53,11 @@ npx wrangler secret put GOOGLE_CLIENT_SECRET
 npx wrangler secret put RESEND_API_KEY          # only for password reset e-mails (step 7)
 ```
 
-Check: `curl https://www.plantriz.com/api/ai/status` should answer `{"configured":true}`.
+Check: `curl https://www.plantriz.com/api/ai/status` should answer `{"configured":true,"dailyLimit":40}`.
+
+Everyone without their own key shares this one `LLM_API_KEY`, so each signed-in user gets `AI_DAILY_LIMIT` requests per
+day (default 40; set a different number as a plain var in `wrangler.jsonc`, or `"0"` for no limit). Users can bring
+their own key in Settings instead; that traffic never touches your key or your quota.
 
 ## 5. Make plantriz.com (without www) work
 

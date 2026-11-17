@@ -25,10 +25,11 @@ What is not done yet, grouped by when it matters. Everything below was checked a
 
 The site will be public and every AI call spends your Groq quota, so these matter more than new features.
 
-- [ ] **Nothing limits requests.** Chat works for guests (no sign-in), sign-up is open, and AI calls use one shared key
-      (Groq's free tier counts tokens per minute per model, for everyone together). Anyone can exhaust it. Add:
-      require sign-in for chat, a per-user daily AI allowance, Cloudflare rate-limiting / WAF rules on `/api/*`,
-      and Turnstile (free) on sign-up.
+- [x] ~~Guest chat on the shared key, no per-user limit.~~ Done: the built-in assistant needs sign-in and each user gets
+      `AI_DAILY_LIMIT` (default 40) requests a day; people can use their own API key instead (Settings), called directly
+      from the browser. **Still open:** nothing limits sign-ups or other requests (Cloudflare rate-limiting / WAF rules
+      on `/api/*`, Turnstile on sign-up), and a signed-in user can still make unlimited calls through the unknown-JSON
+      "AI cleanup" import (`/api/import/preview`, not counted).
 - [ ] **No brute-force protection on sign-in**, and the password policy is only "at least 6 characters". Add attempt
       limits and consider a stronger minimum.
 - [ ] **Session tokens are in the URL** (`?authToken=...`): they end up in browser history, proxy and CDN logs and
@@ -69,6 +70,16 @@ Acceptance: a scanned syllabus PDF and a PNG of a timetable each produce a previ
       after a Google sign-in).
 
 ## 4. Improvements noticed
+
+- [ ] **Own-key defaults:** the preset model names in `frontend/js/llmClient.js` (`PROVIDERS`) are best guesses (Groq's
+      match the Java backend; OpenAI `gpt-4o-mini`, Gemini `gemini-2.5-flash`, OpenRouter `openai/gpt-4o-mini`, DeepSeek
+      `deepseek-chat`) and were only tested against a fake provider. Try each with a real key, fix any that are retired,
+      and re-check CORS (it was last measured for Groq, OpenAI, OpenRouter, Gemini and DeepSeek). Anthropic is not offered:
+      its native API does not allow browser calls.
+- [ ] The own-key path needs the Worker backend (`/api/ai/context`, `/api/import/document-prompt`, `/preview-reply`); the
+      Java backend does not have them, so with Java a saved key makes chat fail with a generic error.
+- [ ] A key saved with "remember on this device" sits unencrypted in `localStorage`: a script that runs on the page can
+      read it. The strict CSP is what protects it; do not add third-party scripts without thinking about this.
 
 - [ ] **Long documents:** only the first ~14,000 characters go to the model (it says so). Read a long syllabus in
       pieces and merge the results.

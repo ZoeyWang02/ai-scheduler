@@ -8,6 +8,7 @@ import { getActiveAnalysisPeriod, loadLifestyleAnalysis } from './analytics.js';
 import { buildImportRow, confirmImportRequest, describeImportPreview, importResultMessage, loadTasks, requestImportPreview } from './scheduler.js';
 import { refreshUserScopedViews } from './app.js';
 import { addMessage, deleteConversation, getConversation, loadConversations, updateMessage } from './chatHistory.js';
+import { AssistantRequestError, chatComplete, describeAiError, hasOwnKey, translateWithOwnKey } from './llmClient.js';
 
 import { pixelIcon } from './pixelIcons.js';
 
@@ -46,20 +47,7 @@ export async function sendMessage() {
             };
 
             try {
-                const response = await fetch(`${API_BASE}/api/ai/chat`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        message: message,
-                        userId: getUserId() ? String(getUserId()) : '',
-                        authToken: getAuthToken(),
-                        timezone: document.getElementById('timezoneSelect').value,
-                        lang: lang,
-                        history: history
-                    })
-                });
-                if (!response.ok) throw new Error('AI request failed: ' + response.status);
-                const data = await response.text();
+                const data = await fetchAssistantReply(message, history, lang);
 
                 // The request is done: remove the typing indicator right away.
                 removeLoading();
@@ -67,9 +55,44 @@ export async function sendMessage() {
                 deliverAiReply(data, message, conversationId);
             } catch (e) {
                 removeLoading();
-                appendMessage('ai', translations[lang].aiConnectFail, true, { conversationId });
+                appendMessage('ai', describeAiError(e, translations[lang], { dailyLimit: state.aiDailyLimit }), true, { conversationId });
                 if (conversationId === currentConversationId) input.value = message;
             }
+        }
+
+/* One question to the assistant, answered as text (a JSON plan may be appended). With the user's own API key the
+   Worker only prepares the prompt (their tasks, rhythm, busy times, the conversation) and this browser sends it to the
+   provider itself; otherwise the built-in assistant answers (signed-in users, within a daily allowance). Throws
+   LlmClientError or AssistantRequestError; describeAiError() turns either into a message for the user. */
+async function fetchAssistantReply(message, history, lang) {
+            const payload = {
+                message,
+                userId: getUserId() ? String(getUserId()) : '',
+                authToken: getAuthToken(),
+                timezone: document.getElementById('timezoneSelect').value,
+                lang,
+                history
+            };
+            const post = (path) => fetch(`${API_BASE}${path}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            if (hasOwnKey()) {
+                const context = await post('/api/ai/context');
+                if (!context.ok) throw new AssistantRequestError(context.status);
+                return chatComplete((await context.json()).messages, { temperature: 0.3 });
+            }
+            const response = await post('/api/ai/chat');
+            if (!response.ok) throw new AssistantRequestError(response.status);
+            return response.text();
+        }
+
+/* Called when the saved key changes (or the status is first known): the assistant is available when the built-in
+   one is configured or the user has a key of their own. */
+export function refreshAiAvailability() {
+            state.aiConfigured = hasOwnKey() || state.serverAiConfigured;
+            renderChatStatus();
         }
 
 /* The earlier turns of the open conversation, in the shape the chat API expects, so the AI can
@@ -127,20 +150,9 @@ export function triggerAutoAiPlanner(type) {
             appendMessage('user', shownMessage);
             const conversationId = currentConversationId;
 
-            fetch(`${API_BASE}/api/ai/chat`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    message: autoMessage,
-                    userId: getUserId() ? String(getUserId()) : '',
-                    authToken: getAuthToken(),
-                    timezone: document.getElementById('timezoneSelect').value,
-                    lang: lang
-                })
-            })
-                .then(res => res.text())
+            fetchAssistantReply(autoMessage, [], lang)
                 .then(data => deliverAiReply(data, shownMessage, conversationId))
-                .catch(err => appendMessage('ai', translations[lang].aiAnalysisFail, false, { conversationId }));
+                .catch(err => appendMessage('ai', describeAiError(err, translations[lang], { dailyLimit: state.aiDailyLimit, fallback: translations[lang].aiAnalysisFail }), false, { conversationId }));
         }
 
 /* Renders a plan box. `persist` stores it in the chat history; replaying a saved chat passes
@@ -280,18 +292,20 @@ export async function checkAiStatus() {
             try {
                 const response = await fetch(`${API_BASE}/api/ai/status`);
                 const data = await response.json();
-                state.aiConfigured = !!data.configured;
+                state.serverAiConfigured = !!data.configured;
+                state.aiDailyLimit = Number(data.dailyLimit) || 0;
             } catch (e) {
-                state.aiConfigured = false;
+                state.serverAiConfigured = false;
             }
-            renderChatStatus();
+            refreshAiAvailability();
         }
 
 export function renderChatStatus() {
             const statusEl = document.getElementById('chatStatus');
             if (!statusEl) return;
             const lang = localStorage.getItem('appLang') || 'zh';
-            statusEl.innerText = state.aiConfigured ? translations[lang].statusOnline : translations[lang].statusOffline;
+            statusEl.innerText = !state.aiConfigured ? translations[lang].statusOffline
+                : hasOwnKey() ? translations[lang].statusOwnKey : translations[lang].statusOnline;
             statusEl.classList.toggle('offline', !state.aiConfigured);
         }
 
@@ -347,6 +361,7 @@ export function appendMessage(role, text, isError = false, { persist = true, con
 
 export async function requestTranslation(text) {
             const lang = localStorage.getItem('appLang') || 'zh';
+            if (hasOwnKey()) return translateWithOwnKey(text, lang);
             const response = await fetch(`${API_BASE}/api/ai/translate`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -369,7 +384,7 @@ export async function toggleTranslate(btn, targetEl, originalText, mode) {
                 btn.dataset.translated = '0';
                 return;
             }
-            if (!requireUser()) return;
+            if (!hasOwnKey() && !requireUser()) return;
             btn.disabled = true;
             btn.innerText = '…';
             try {
@@ -382,7 +397,7 @@ export async function toggleTranslate(btn, targetEl, originalText, mode) {
                 btn.innerHTML = pixelIcon('undo');
                 btn.dataset.translated = '1';
             } catch (e) {
-                showToast(lang === 'zh' ? '翻译失败' : 'Translation failed', 'error');
+                showToast(describeAiError(e, translations[lang], { dailyLimit: state.aiDailyLimit, fallback: lang === 'zh' ? '翻译失败' : 'Translation failed' }), 'error');
                 btn.innerHTML = pixelIcon('languages');
             } finally {
                 btn.disabled = false;

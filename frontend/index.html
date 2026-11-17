@@ -142,6 +142,28 @@
                 </div>
             </div>
 
+            <div class="settings-section" id="aiKeySection">
+                <div class="settings-section-title ai-key-title"><span class="px-ico px-ico-label" data-icon="key"></span><span data-i18n="aiKeyTitle">使用自己的 AI 密钥</span></div>
+                <p class="ai-key-intro" data-i18n="aiKeyIntro"></p>
+                <div class="ai-key-grid">
+                    <label for="aiProviderSelect" data-i18n="aiProviderLabel">服务商</label>
+                    <select id="aiProviderSelect" class="custom-input" data-change="aiProviderChanged" data-args='["@value"]'></select>
+                    <label for="aiKeyInput" data-i18n="aiKeyLabel">API 密钥</label>
+                    <input id="aiKeyInput" class="custom-input" type="password" autocomplete="off" spellcheck="false" autocapitalize="off" placeholder="API key">
+                    <label for="aiModelInput" data-i18n="aiModelLabel">模型</label>
+                    <input id="aiModelInput" class="custom-input" type="text" autocomplete="off" spellcheck="false" autocapitalize="off">
+                </div>
+                <label class="ai-key-remember"><input type="checkbox" id="aiRememberCheck"><span data-i18n="aiRememberLabel">在此设备上记住密钥</span></label>
+                <p class="reminders-hint" data-i18n="aiRememberHint"></p>
+                <div class="ai-key-actions">
+                    <button class="btn-sync" id="aiTestBtn" data-click="testAiKey" data-i18n="aiTestBtn">测试并保存</button>
+                    <button class="btn-sync" id="aiRemoveBtn" data-click="clearAiKey" data-i18n="aiRemoveBtn">删除密钥</button>
+                    <a id="aiKeyLink" class="ai-key-link" href="#" target="_blank" rel="noopener noreferrer" data-i18n="aiGetKey">获取密钥</a>
+                </div>
+                <div id="aiKeyStatus" class="ai-key-status" role="status" aria-live="polite"></div>
+                <p class="reminders-hint" data-i18n="aiKeyPrivacy"></p>
+            </div>
+
             <div class="settings-section">
                 <div class="settings-section-title" data-i18n="settingsTheme">界面主题</div>
                 <select id="themeSelect" class="custom-input" data-change="previewTheme" data-args='["@value"]'>

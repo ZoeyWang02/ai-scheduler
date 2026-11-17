@@ -3509,3 +3509,63 @@
         [data-theme="stardew-night"] #nightToggleBtn .night-icon-sun {
             display: block;
         }
+
+
+/* ---- Settings: your own AI key ---- */
+.ai-key-intro {
+    font-size: var(--text-caption);
+    line-height: 1.5;
+    color: var(--text-muted);
+    margin: 0 0 12px;
+}
+.ai-key-grid {
+    display: grid;
+    grid-template-columns: max-content 1fr;
+    gap: 8px 12px;
+    align-items: center;
+}
+.ai-key-grid label {
+    font-size: var(--text-caption);
+    font-weight: 700;
+    color: var(--text-muted);
+}
+.ai-key-remember {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 12px;
+    font-size: var(--text-caption);
+    cursor: pointer;
+}
+.ai-key-actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px 12px;
+    margin-top: 10px;
+}
+.ai-key-link {
+    font-size: var(--text-caption);
+    color: var(--color-primary);
+}
+.ai-key-status {
+    min-height: 1.4em;
+    margin-top: 8px;
+    font-size: var(--text-caption);
+    line-height: 1.5;
+    color: var(--text-muted);
+    overflow-wrap: anywhere;
+}
+.ai-key-status[data-kind="ok"] { color: var(--color-positive); }
+.ai-key-status[data-kind="error"] { color: var(--color-danger); }
+.ai-key-title {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+.ai-key-grid { grid-template-columns: max-content minmax(0, 1fr); }
+.ai-key-grid .custom-input {
+    width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
+}

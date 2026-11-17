@@ -114,10 +114,10 @@ const REPLIES = {
   failed: { en: "Sorry, my brain is a bit scrambled right now (API Connection Failed).", zh: "对不起，我现在脑子有点乱（API连接失败）。" },
 };
 
-/** The assistant's reply as plain text (a JSON plan may be appended at the end). Never throws for an AI failure:
- *  like the Java backend it answers with an apology, so the chat window always has something to show. */
-export async function chatReply(env: Env, req: ChatRequest, nowMs = Date.now()): Promise<string> {
-  if (!isLlmConfigured(env)) return REPLIES.notConfigured;
+/** The system prompt (the user's tasks, rhythm profile, busy times, calendar) + earlier turns + the new message.
+ *  Shared by the server-key path (chatReply) and the bring-your-own-key path, where the browser sends exactly
+ *  these messages to the provider itself. */
+export async function buildChatMessages(env: Env, req: ChatRequest, nowMs = Date.now()): Promise<ChatMessage[]> {
   const isEn = req.lang === "en";
   const tz = req.timezone;
   assertTimeZone(tz);
@@ -146,7 +146,15 @@ export async function chatReply(env: Env, req: ChatRequest, nowMs = Date.now()):
     calendar: buildCalendarContext({ y: +currentTime.slice(0, 4), mo: +currentTime.slice(5, 7), d: +currentTime.slice(8, 10) }, isEn),
   });
 
-  const messages: ChatMessage[] = [{ role: "system", content: system }, ...sanitizeHistory(req.history), { role: "user", content: req.message }];
+  return [{ role: "system", content: system }, ...sanitizeHistory(req.history), { role: "user", content: req.message }];
+}
+
+/** The assistant's reply as plain text (a JSON plan may be appended at the end). Never throws for an AI failure:
+ *  like the Java backend it answers with an apology, so the chat window always has something to show. */
+export async function chatReply(env: Env, req: ChatRequest, nowMs = Date.now()): Promise<string> {
+  if (!isLlmConfigured(env)) return REPLIES.notConfigured;
+  const isEn = req.lang === "en";
+  const messages = await buildChatMessages(env, req, nowMs);
   try {
     return await chatCompletion(env, messages, 0.3);
   } catch (error) {

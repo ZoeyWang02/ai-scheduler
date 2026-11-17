@@ -5,6 +5,7 @@
 import type { Env } from "./env";
 import { parseIcsEvents } from "./ics";
 import { calendarContext, chatCompletion, extractJsonArray, isLlmConfigured } from "./llm";
+import type { ChatMessage } from "./llm";
 import { assertTimeZone, formatStored, localToUtc, msToStored, parseLocalDateTime, storedToMs, utcToLocal } from "./time";
 
 export type ItemKind = "task" | "course";
@@ -292,21 +293,34 @@ export function itemsFromModelReply(reply: string, fileName: string, timeZone: s
   return items;
 }
 
-export async function parseDocumentText(env: Env, fileName: string, rawText: string, timeZone: string, nowMs = Date.now()): Promise<ParsedImport> {
+/** What goes to the model for a document: the two messages, and whether the text had to be cut. Also used by the
+ *  bring-your-own-key path, where the browser sends these messages to the provider itself. */
+export function documentMessages(fileName: string, rawText: string, timeZone: string, nowMs = Date.now()): { messages: ChatMessage[]; truncated: boolean } {
   assertTimeZone(timeZone);
   const cleaned = cleanDocumentText(rawText);
   if (cleaned.length < 20) throw new Error("No readable text was found in this file. A scanned PDF (an image of text) cannot be read yet.");
-  const truncated = cleaned.length > MAX_DOCUMENT_CHARS;
   const todayLocal = localParts(utcToLocal(msToStored(nowMs), timeZone));
+  return {
+    truncated: cleaned.length > MAX_DOCUMENT_CHARS,
+    messages: [
+      { role: "system", content: documentPrompt(timeZone, todayLocal) },
+      { role: "user", content: `Document "${fileName}":\n\n${cleaned.slice(0, MAX_DOCUMENT_CHARS)}` },
+    ],
+  };
+}
 
-  const reply = await chatCompletion(env, [
-    { role: "system", content: documentPrompt(timeZone, todayLocal) },
-    { role: "user", content: `Document "${fileName}":\n\n${cleaned.slice(0, MAX_DOCUMENT_CHARS)}` },
-  ], 0.1);
+/** The model's reply to documentMessages() -> a parsed import. */
+export function parsedFromDocumentReply(reply: string, fileName: string, timeZone: string, truncated: boolean): ParsedImport {
+  assertTimeZone(timeZone);
   return {
     parser: "ai-document",
     aiFallbackUsed: true,
     items: itemsFromModelReply(reply, fileName, timeZone),
     warning: truncated ? `The document is long, so only the first ${MAX_DOCUMENT_CHARS.toLocaleString("en-US")} characters were read.` : undefined,
   };
+}
+
+export async function parseDocumentText(env: Env, fileName: string, rawText: string, timeZone: string, nowMs = Date.now()): Promise<ParsedImport> {
+  const { messages, truncated } = documentMessages(fileName, rawText, timeZone, nowMs);
+  return parsedFromDocumentReply(await chatCompletion(env, messages, 0.1), fileName, timeZone, truncated);
 }

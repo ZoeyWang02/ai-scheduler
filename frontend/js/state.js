@@ -10,6 +10,8 @@ export const state = {
     layoutInitialized: false,
     currentImportPreview: null,
     currentOpenedCourseId: null,
-    aiConfigured: true,
+    aiConfigured: true,       // the built-in assistant is configured, or the user has a key of their own
+    serverAiConfigured: true, // the built-in assistant alone (from /api/ai/status)
+    aiDailyLimit: 0,          // built-in AI requests per user per day (0 = unknown or no limit)
     lastLoadedTasks: [],
 };

@@ -8,6 +8,8 @@ export interface Env {
   LLM_MODEL?: string;
   /** Second model tried when the first is rate limited (limits are per model). */
   LLM_FALLBACK_MODEL?: string;
+  /** Built-in AI requests per user per UTC day (default 40, "0" = no limit). People with their own key are not counted. */
+  AI_DAILY_LIMIT?: string;
 
   // --- Passwords --------------------------------------------------------------------------------
   PBKDF2_ITERATIONS?: string;

@@ -46,5 +46,6 @@
     // Plain settings you may add as vars once known:
     //   EMAIL_FROM   "PlanTriz <noreply@plantriz.com>"  (an address on a domain verified with Resend)
     //   LLM_MODEL, LLM_FALLBACK_MODEL, LLM_API_URL      (defaults match the Java backend)
+    //   AI_DAILY_LIMIT  "40"   built-in AI requests per user per UTC day ("0" = no limit)
   }
 }

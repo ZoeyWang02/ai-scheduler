@@ -4,6 +4,7 @@ import { showToast } from './utils.js';
 import { setTheme } from './theme.js';
 import { refreshBuddyState, renderAvatarPicker, renderBuddyStatus, syncAllBuddyAvatars } from './buddy.js';
 import { getAuthToken, getUserId } from './auth.js';
+import { renderAiSettings, saveAiSettings } from './aiSettings.js';
 
 export function openSettingsModal() {
             state.pendingTheme = localStorage.getItem('appTheme') || 'stardew';
@@ -12,11 +13,13 @@ export function openSettingsModal() {
             if (select) select.value = state.pendingTheme;
             renderAvatarPicker();
             renderBuddyStatus();
+            renderAiSettings();
             if (getUserId()) refreshBuddyState();
             document.getElementById('settingsModal').style.display = 'block';
         }
 
 export async function saveSettings() {
+            if (!saveAiSettings()) return; // the AI key fields need attention: the message is shown in the dialog
             if (state.pendingTheme) setTheme(state.pendingTheme);
             if (state.pendingBuddy) {
                 localStorage.setItem('studyBuddy', state.pendingBuddy);

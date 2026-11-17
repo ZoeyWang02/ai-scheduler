@@ -39,7 +39,7 @@ export const GOOGLE_PROFILES = {
 /** Returns { base, seen, emails, setMode, stop }. mode: ok | prose | busy | broken.
  *  `seen` has { model, system, user, messages } for every LLM request (`messages` is the whole list);
  *  `emails` has every message the Worker sent through the fake e-mail API. */
-export async function startMockStack({ mockPort = DEFAULT_MOCK_PORT, workerPort = DEFAULT_WORKER_PORT, state = ".wrangler/mock-stack-state" } = {}) {
+export async function startMockStack({ mockPort = DEFAULT_MOCK_PORT, workerPort = DEFAULT_WORKER_PORT, state = ".wrangler/mock-stack-state", dailyLimit = 60 } = {}) {
   let mode = "ok";
   const seen = [];
   const emails = [];
@@ -99,6 +99,7 @@ export async function startMockStack({ mockPort = DEFAULT_MOCK_PORT, workerPort 
   const worker = spawn("npx", [
     "wrangler", "dev", "--local", "--port", String(workerPort), "--host", `127.0.0.1:${workerPort}`, "--persist-to", state,
     "--var", `LLM_API_URL:http://127.0.0.1:${mockPort}/v1/chat/completions`,
+    "--var", `AI_DAILY_LIMIT:${dailyLimit}`,
     "--var", "LLM_API_KEY:test-key", "--var", "LLM_MODEL:mock-big", "--var", "LLM_FALLBACK_MODEL:mock-small",
     "--var", "GOOGLE_CLIENT_ID:mock-client-id", "--var", "GOOGLE_CLIENT_SECRET:mock-client-secret",
     "--var", `GOOGLE_AUTH_URL:http://127.0.0.1:${mockPort}/google/auth`,

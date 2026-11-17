@@ -42,6 +42,23 @@ To use the real AI locally, put `LLM_API_KEY=...` in `worker/.dev.vars` (git-ign
 `LLM_MODEL`, `LLM_FALLBACK_MODEL`, `LLM_API_URL` (defaults match the Java backend: Groq, `openai/gpt-oss-120b`,
 falling back to `openai/gpt-oss-20b` on HTTP 429).
 
+## Built-in AI and bring-your-own-key
+
+Two ways to use the AI, chosen in the browser:
+
+- **Built-in** (the site's `LLM_API_KEY`): for signed-in users only, `AI_DAILY_LIMIT` requests per user per UTC day
+  (default 40, `"0"` turns the limit off; counted in the `ai_usage` table, one batched query per request). Over the
+  limit, chat / translate answer 429 and document reading answers 429 with `code: "ai_quota"`.
+- **The user's own key** (Settings, "Use your own AI key"): the browser calls the provider itself (Groq, OpenAI,
+  Gemini, OpenRouter or DeepSeek, the hosts allowed by the CSP `connect-src`), so the key never reaches this
+  Worker and nothing is counted. The Worker only prepares prompts, and calls no model:
+  `POST /api/ai/context` (the chat system prompt with the user's tasks, rhythm, busy times and the conversation),
+  `POST /api/import/document-prompt` (the two messages for a document) and `POST /api/import/preview-reply` (turns
+  the provider's answer into the usual preview). Guests may use `/api/ai/context`; the import calls need sign-in.
+  The browser code is `frontend/js/llmClient.js` (requests, fallback model, error messages; unit-tested) and
+  `frontend/js/aiSettings.js` (the settings section). Keys live in `sessionStorage`, or `localStorage` when the user
+  ticks "remember on this device".
+
 ## Importing
 
 `POST /api/import/preview` takes a file (multipart) and `POST /api/import/preview-text` takes the text of a
@@ -95,11 +112,6 @@ with checkboxes, and adds nothing to the calendar until **Import selected** is p
   controllers, so the frontend needs almost no changes (`config.js` now uses same-origin URLs everywhere
   except the `:8099` static preview).
 
-## Free-tier limits worth knowing
-
-Workers Free: 100,000 requests/day, 10 ms CPU/request, 50 subrequests. D1 Free: 5 M rows read and
-100 k rows written per day, 5 GB, 50 queries per request. Past a daily limit the API returns errors until
-00:00 UTC (no charge). The AI provider has its own limits (Groq's free tier counts tokens per minute per model).
 ## Security headers and the Content-Security-Policy
 
 The site is served with a strict policy (`frontend/_headers`): scripts, workers, fonts and images come from this
@@ -110,3 +122,8 @@ the AI providers a user can pick. Third-party libraries (FullCalendar, Tippy, Po
 `app.js` can be reached). Tests: `worker/test/frontend.test.ts` fails if an inline handler, an external script or a
 weaker policy is introduced. API answers carry `Cache-Control: no-store`.
 
+## Free-tier limits worth knowing
+
+Workers Free: 100,000 requests/day, 10 ms CPU/request, 50 subrequests. D1 Free: 5 M rows read and
+100 k rows written per day, 5 GB, 50 queries per request. Past a daily limit the API returns errors until
+00:00 UTC (no charge). The AI provider has its own limits (Groq's free tier counts tokens per minute per model).

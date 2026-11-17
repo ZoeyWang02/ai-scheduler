@@ -8,11 +8,12 @@ import { applyLanguage, toggleLanguage, translations } from './i18n.js';
 import { initReminders, toggleReminders } from './reminders.js';
 import { closeImportModal, closeModal, confirmUnifiedImport, courseApiUrl, courseToCalendarEvent, initCalendar, loadTasks, loadTimezones, onTimezoneChange, openEditModal, openImportModal, previewUnifiedImport, saveManualTask, setImportSelection, taskApiUrl, taskToCalendarEvent, updateTaskColor } from './scheduler.js';
 import { applyServerPreferences, closeSettingsModal, openSettingsModal, saveSettings } from './settings.js';
+import { aiProviderChanged, clearAiKey, testAiKey } from './aiSettings.js';
 import { previewTheme, setTheme, toggleNightMode } from './theme.js';
 import { initTodayBand } from './todayBand.js';
 import { initPixelIcons } from './pixelIcons.js';
-
 import { initActions } from './actions.js';
+
 // Module scripts run after the document is parsed, so the static icon slots in
 // index.html (<span data-icon="...">) can be filled right away, before first paint
 // of the app logic below.
@@ -187,8 +188,8 @@ const actions = {
     closeAuthModal,
     closeBuddyStatusModal,
     closeChatDrawer,
-    closeImportModal,
     closeEditTaskModal,
+    closeImportModal,
     closeLifePanelModal,
     closeModal,
     closeSettingsModal,
@@ -207,6 +208,9 @@ const actions = {
     resetBuddyWidgetPosition,
     saveManualTask,
     saveSettings,
+    aiProviderChanged,
+    testAiKey,
+    clearAiKey,
     sendMessage,
     showChatList,
     setAuthMode,

@@ -8,6 +8,7 @@ import { addAuthParams, getAuthToken, getUserId, requireUser } from './auth.js';
 import { refreshUserScopedViews } from './app.js';
 import { toggleTranslate, triggerAutoAiPlanner } from './chat.js';
 import { extractDocumentText, fileExtension, isDocumentFile } from './docExtract.js';
+import { chatComplete, describeAiError, hasOwnKey } from './llmClient.js';
 
 import { pixelIcon } from './pixelIcons.js';
 export function taskApiUrl(timezone) {
@@ -468,6 +469,7 @@ export async function requestImportPreview(file) {
                 } catch (error) {
                     throw new Error(documentErrorMessage(error, dict));
                 }
+                if (hasOwnKey()) return previewDocumentWithOwnKey(file.name, text, query, dict);
                 response = await fetch(`${API_BASE}/api/import/preview-text?${query}`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -478,9 +480,35 @@ export async function requestImportPreview(file) {
                 formData.append('file', file);
                 response = await fetch(`${API_BASE}/api/import/preview?${query}`, { method: 'POST', body: formData });
             }
+            return previewResult(response, dict);
+        }
+
+// The preview the server sent, or an Error with a message for the user.
+async function previewResult(response, dict) {
             const result = await response.json().catch(() => ({}));
-            if (!response.ok) throw new Error(result.message || dict.checkInput);
-            return result;
+            if (response.ok) return result;
+            if (result.code === 'ai_quota') throw new Error(describeAiError({ status: 429 }, dict, { dailyLimit: state.aiDailyLimit }));
+            throw new Error(result.message || dict.checkInput);
+        }
+
+/* The same document import with the user's own API key: the server prepares the prompt, this browser sends it to the
+   provider itself, and the server turns the answer into the preview. The key never leaves the browser. */
+async function previewDocumentWithOwnKey(fileName, text, query, dict) {
+            const post = (path, body) => fetch(`${API_BASE}/api/import/${path}?${query}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(body)
+            });
+            const promptResponse = await post('document-prompt', { fileName, text });
+            const prompt = await promptResponse.json().catch(() => ({}));
+            if (!promptResponse.ok) throw new Error(prompt.message || dict.checkInput);
+            let reply;
+            try {
+                reply = await chatComplete(prompt.messages, { temperature: 0.1 });
+            } catch (error) {
+                throw new Error(describeAiError(error, dict, { dailyLimit: state.aiDailyLimit }));
+            }
+            return previewResult(await post('preview-reply', { fileName, reply, truncated: prompt.truncated === true }), dict);
         }
 
 export async function previewUnifiedImport() {

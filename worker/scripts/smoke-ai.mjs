@@ -5,7 +5,7 @@
 //
 // The mock always rate-limits the main model, so every call also proves the fallback-model path.
 
-import { startMockStack } from "./mock-stack.mjs";
+import { REPLY, startMockStack } from "./mock-stack.mjs";
 
 const run = Math.random().toString(36).slice(2, 8);
 
@@ -29,14 +29,14 @@ async function call(method, path, { json, query = {} } = {}) {
 
 try {
   console.log("Starting an isolated Worker with a fake LLM ...");
-  stack = await startMockStack({ state: ".wrangler/smoke-ai-state" });
+  stack = await startMockStack({ state: ".wrangler/smoke-ai-state", dailyLimit: 40 });
   BASE = stack.base;
   const seen = stack.seen;
   const setMode = stack.setMode;
 
   console.log("\ndocument import");
   let r = await call("GET", "/api/ai/status");
-  check("the AI is reported as configured", r.body.configured === true);
+  check("the AI is reported as configured, with the daily limit", r.body.configured === true && r.body.dailyLimit === 40, JSON.stringify(r.body));
 
   r = await call("POST", "/api/auth/signup", { json: { username: `eve_${run}`, email: `eve_${run}@example.com`, password: "secret123" } });
   const user = r.body;
@@ -119,9 +119,10 @@ try {
   r = await call("POST", "/api/ai/chat", { json: { ...authBody, message: "你好", lang: "zh" } });
   check("a Chinese chat gets the Chinese prompt", r.status === 200 && seen.at(-1).system.startsWith("你是一个UIUC的学术助理") && seen.at(-1).system.endsWith("关键规则：请全程使用中文回答用户并提供建议。"));
 
+  const llmCallsBefore = seen.length;
   r = await call("POST", "/api/ai/chat", { json: { message: "hi there", lang: "en", timezone: "America/Chicago" } });
-  check("a guest can chat too", r.status === 200 && r.body.startsWith("Here is a plan"));
-  check("(a guest's prompt has no tasks)", seen.at(-1).system.includes("Here are the user's current tasks:\n\n"));
+  check("a guest cannot use the built-in assistant: told to sign in or bring a key (401)", r.status === 401 && /Sign in .* your own API key/.test(r.body), JSON.stringify(r));
+  check("(and no model call was made for it)", seen.length === llmCallsBefore);
 
   setMode("busy");
   r = await call("POST", "/api/ai/chat", { json: { ...authBody, message: "hi", lang: "en" } });
@@ -140,6 +141,71 @@ try {
   r = await call("POST", "/api/ai/translate", { json: { text: "hello", targetLang: "zh", authToken: user.token } });
   check("a failed translation is a 500 the UI can report", r.status === 500 && /Translation failed/.test(r.body), JSON.stringify(r));
   setMode("ok");
+
+  // ---- bring your own key: the Worker only prepares prompts, the browser talks to the provider ---------------
+  console.log("\nbring your own key (prompts only)");
+  seen.length = 0;
+  r = await call("POST", "/api/ai/context", { json: { ...authBody, message: "move them to the evening", lang: "en", history } });
+  check("context returns the chat messages (200)", r.status === 200 && Array.isArray(r.body.messages), JSON.stringify(r.body).slice(0, 200));
+  check("they are system + earlier turns (injected system turn dropped) + the new message", r.body.messages.map((m) => m.role).join() === "system,user,assistant,user" && r.body.messages.at(-1).content === "move them to the evening");
+  check("the system prompt has the user's tasks, rhythm profile and the language rule", r.body.messages[0].content.includes("title=Midterm exam, Due=2027-11-19T15:00") && r.body.messages[0].content.includes("User's rhythm profile: ") && r.body.messages[0].content.endsWith("ENTIRELY IN ENGLISH."));
+  check("no model was called by the Worker", seen.length === 0);
+  r = await call("POST", "/api/ai/context", { json: { message: "hello", lang: "zh", timezone: "America/Chicago" } });
+  check("a guest gets a prompt without anyone's data (200)", r.status === 200 && r.body.messages[0].content.startsWith("你是一个UIUC的学术助理") && !r.body.messages[0].content.includes("Midterm exam"));
+  r = await call("POST", "/api/ai/context", { json: { message: "hi", userId: String(user.id), authToken: "bad" } });
+  check("context with a bad token is rejected (401)", r.status === 401);
+  r = await call("POST", "/api/ai/context", { json: { message: "  " } });
+  check("context needs a message (400)", r.status === 400);
+  r = await call("POST", "/api/ai/context", { json: { message: "hi", timezone: "Mars/Base" } });
+  check("an unknown time zone is a 400", r.status === 400);
+
+  r = await call("POST", "/api/import/document-prompt", { query: q, json: { fileName: "syllabus.docx", text: syllabus } });
+  check("document-prompt returns the two messages for the provider", r.status === 200 && r.body.messages.length === 2 && r.body.messages[0].role === "system" && r.body.messages[1].content.startsWith('Document "syllabus.docx":') && r.body.truncated === false, JSON.stringify(r.body).slice(0, 200));
+  check("(without calling any model)", seen.length === 0);
+  r = await call("POST", "/api/import/document-prompt", { query: q, json: { fileName: "long.txt", text: "Assignment details. ".repeat(2000) } });
+  check("a long document is cut and flagged as truncated", r.status === 200 && r.body.truncated === true);
+  r = await call("POST", "/api/import/document-prompt", { query: { ...q, authToken: "bad" }, json: { fileName: "a.docx", text: syllabus } });
+  check("document-prompt needs a valid token (401)", r.status === 401);
+  r = await call("POST", "/api/import/document-prompt", { query: q, json: { fileName: "scan.pdf", text: "short" } });
+  check("a document with no readable text is a 400", r.status === 400 && /No readable text/.test(r.body.message));
+
+  r = await call("POST", "/api/import/preview-reply", { query: q, json: { fileName: "syllabus.docx", reply: `Sure, here you go:\n${REPLY}`, truncated: false } });
+  check("preview-reply turns the provider's answer into the same kind of preview (200)", r.status === 200 && r.body.parser === "ai-document" && r.body.items.length === 3 && r.body.items[0].dueDate === "2027-11-19T21:00", JSON.stringify(r.body).slice(0, 250));
+  r = await call("POST", "/api/import/preview-reply", { query: q, json: { fileName: "long.txt", reply: REPLY, truncated: true } });
+  check("a truncated document says so in the summary", r.status === 200 && /only the first 14,000 characters/.test(r.body.summary), r.body.summary);
+  r = await call("POST", "/api/import/preview-reply", { query: q, json: { fileName: "x.docx", reply: "I could not find any dates." } });
+  check("an answer with no items is an empty preview, not an error", r.status === 200 && r.body.items.length === 0);
+  r = await call("POST", "/api/import/preview-reply", { query: { ...q, authToken: "bad" }, json: { fileName: "a.docx", reply: REPLY } });
+  check("preview-reply needs a valid token (401)", r.status === 401);
+  r = await call("POST", "/api/import/preview-reply", { query: q, json: { fileName: "a.docx", reply: " " } });
+  check("an empty reply is a 400", r.status === 400);
+  check("none of this used the built-in allowance or a model", seen.length === 0);
+
+  // ---- the built-in AI has a per-user daily allowance (AI_DAILY_LIMIT=40 for this run) ----------------------------
+  console.log("\ndaily allowance");
+  r = await call("POST", "/api/auth/signup", { json: { username: `quota_${run}`, email: `quota_${run}@example.com`, password: "secret123" } });
+  const quotaUser = r.body;
+  let allowed = 0;
+  let lastStatus = 200, lastBody = "";
+  for (let i = 0; i < 45; i++) {
+    r = await call("POST", "/api/ai/translate", { json: { text: "hello", targetLang: "zh", authToken: quotaUser.token } });
+    if (r.status !== 200) { lastStatus = r.status; lastBody = r.body; break; }
+    allowed++;
+  }
+  check("exactly 40 built-in AI requests are allowed per day", allowed === 40, `allowed=${allowed}`);
+  check("the 41st is refused with 429 and a message pointing to Settings", lastStatus === 429 && /40 built-in AI requests/.test(lastBody) && /your own API key/.test(lastBody), `${lastStatus} ${lastBody}`);
+  const modelCallsBefore = seen.length;
+  r = await call("POST", "/api/ai/chat", { json: { userId: String(quotaUser.id), authToken: quotaUser.token, message: "hi", lang: "en" } });
+  check("the allowance is shared by chat (429)", r.status === 429);
+  r = await call("POST", "/api/import/preview-text", { query: { userId: quotaUser.id, authToken: quotaUser.token, timezone: "America/Chicago" }, json: { fileName: "a.docx", text: syllabus } });
+  check("and by document reading (429 with code ai_quota)", r.status === 429 && r.body.code === "ai_quota", JSON.stringify(r.body));
+  check("a refused request does not reach the model", seen.length === modelCallsBefore);
+  r = await call("POST", "/api/ai/context", { json: { userId: String(quotaUser.id), authToken: quotaUser.token, message: "hi", lang: "en" } });
+  check("preparing a bring-your-own-key request is never limited (200)", r.status === 200);
+  r = await call("POST", "/api/ai/translate", { json: { text: "hello", targetLang: "zh", authToken: user.token } });
+  check("other users have their own allowance (200)", r.status === 200);
+  setMode("ok");
+
   // ---- Sign in with Google (fake Google; the authorization code names the account) -----------------------------
   console.log("\nsign in with Google");
   const raw = (path, cookie) => fetch(BASE + path, { redirect: "manual", headers: cookie ? { Cookie: cookie } : {} });

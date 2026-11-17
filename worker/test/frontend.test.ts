@@ -91,3 +91,28 @@ describe("Content-Security-Policy in _headers", () => {
     expect(scriptSrc).not.toMatch(/unsafe-inline|unsafe-eval|https?:|\*/);
   });
 });
+
+describe("AI key settings", () => {
+  const i18n = read("js/i18n.js");
+  const keysUsed = new Set([
+    ...[...html.matchAll(/data-i18n(?:-placeholder|-title)?="(ai[A-Za-z]+|statusOwnKey)"/g)].map((m) => m[1]),
+    ...["js/llmClient.js", "js/aiSettings.js"].flatMap((f) => [...read(f).matchAll(/dict(?:ionary\(\))?\.(ai[A-Za-z]+|statusOwnKey)\b/g)].map((m) => m[1])),
+  ]);
+
+  it("every text it shows exists in both languages", () => {
+    expect(keysUsed.size).toBeGreaterThan(20);
+    for (const key of keysUsed) expect(i18n.split(`${key}:`).length - 1, key).toBe(2);
+  });
+
+  it("only talks to providers the policy allows, and never puts the key in a URL", () => {
+    const client = read("js/llmClient.js");
+    expect(client).not.toMatch(/\?key=|[?&]api[_-]?key=|apiKey\s*\}\s*@/i);
+    expect(client).toMatch(/Authorization: `Bearer \$\{apiKey\}`/);
+    for (const m of client.matchAll(/url: '(https:\/\/[^']+)'/g)) expect(headers).toContain(new URL(m[1]).origin);
+  });
+
+  it("the settings page has the fields the script reads", () => {
+    for (const id of ["aiProviderSelect", "aiKeyInput", "aiModelInput", "aiRememberCheck", "aiTestBtn", "aiKeyStatus", "aiKeyLink"]) expect(html, id).toContain(`id="${id}"`);
+    expect(html).toMatch(/id="aiKeyInput"[^>]*type="password"|type="password"[^>]*id="aiKeyInput"/);
+  });
+});
