@@ -305,14 +305,14 @@ def take(ctx_factory, lang, files):
         # 2c. import a class timetable (.ics) and a Canvas export (.json), both randomly generated
         def run_import(path, pick, preview, done, min_rows, need_badges=()):
             d.caption(t[pick])
-            d.click('#iconRail button[onclick="openImportModal()"]')
+            d.click('#iconRail [data-click="openImportModal"]')
             page.wait_for_selector("#importModal", state="visible", timeout=5000)
             d.wait(900)
             d.glide(page.locator("#unifiedImportFile"))
             page.set_input_files("#unifiedImportFile", str(path))
             d.wait(1100)
             d.caption(t[preview])
-            d.click('#importModal button[onclick="previewUnifiedImport()"]')
+            d.click('#importModal [data-click="previewUnifiedImport"]')
             page.wait_for_selector("#importPreviewList .import-preview-item", timeout=15000)
             d.wait(1200)
             if page.locator("#importPreviewList .import-preview-item").count() < min_rows:

@@ -13,8 +13,9 @@ export const MAX_DOCUMENT_BYTES = 15 * 1024 * 1024;
 // Keep in step with the server (MAX_TEXT_CHARS): anything longer is cut here.
 const MAX_TEXT_CHARS = 380000;
 
-const PDFJS_VERSION = '4.4.168';
-const PDFJS_BASE = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${PDFJS_VERSION}`;
+// pdf.js is served from this site (frontend/vendor), like every other script: the Content-Security-Policy
+// allows scripts and workers from 'self' only.
+const PDFJS_BASE = new URL('../vendor/pdfjs-4.4.168', import.meta.url).href;
 
 export function fileExtension(name) {
     const match = /\.([A-Za-z0-9]+)$/.exec(name || '');
@@ -135,9 +136,7 @@ function loadPdfJs() {
     if (!pdfjsPromise) {
         pdfjsPromise = (async () => {
             const pdfjs = await import(/* @vite-ignore */ `${PDFJS_BASE}/pdf.min.mjs`);
-            // A cross-origin Worker cannot be created directly; wrap the CDN script in a same-origin blob.
-            const source = await (await fetch(`${PDFJS_BASE}/pdf.worker.min.mjs`)).text();
-            pdfjs.GlobalWorkerOptions.workerSrc = URL.createObjectURL(new Blob([source], { type: 'text/javascript' }));
+            pdfjs.GlobalWorkerOptions.workerSrc = `${PDFJS_BASE}/pdf.worker.min.mjs`;
             return pdfjs;
         })().catch((error) => { pdfjsPromise = null; throw error; });
     }
@@ -146,7 +145,8 @@ function loadPdfJs() {
 
 async function pdfToText(buffer) {
     const pdfjs = await loadPdfJs();
-    const doc = await pdfjs.getDocument({ data: new Uint8Array(buffer) }).promise;
+    // isEvalSupported: false keeps pdf.js from using new Function(), which the CSP (no 'unsafe-eval') forbids.
+    const doc = await pdfjs.getDocument({ data: new Uint8Array(buffer), isEvalSupported: false }).promise;
     try {
         const pages = Math.min(doc.numPages, 60); // a syllabus is a few pages; stop long books early
         let out = '';

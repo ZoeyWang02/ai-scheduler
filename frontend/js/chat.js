@@ -181,7 +181,7 @@ export function appendAiPlanner(jsonString, { request = '', conversationId, pers
                     </label>
                 </div>
             `).join('')}
-            <button class="sync-btn" onclick="syncSelectedTasks(this)">${dict.applyPlanBtn}</button>
+            <button class="sync-btn" data-click="syncSelectedTasks" data-args='["@this"]'>${dict.applyPlanBtn}</button>
         `;
                 if (applied) {
                     const btn = plannerDiv.querySelector('.sync-btn');

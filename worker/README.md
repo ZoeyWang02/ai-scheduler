@@ -100,3 +100,13 @@ with checkboxes, and adds nothing to the calendar until **Import selected** is p
 Workers Free: 100,000 requests/day, 10 ms CPU/request, 50 subrequests. D1 Free: 5 M rows read and
 100 k rows written per day, 5 GB, 50 queries per request. Past a daily limit the API returns errors until
 00:00 UTC (no charge). The AI provider has its own limits (Groq's free tier counts tokens per minute per model).
+## Security headers and the Content-Security-Policy
+
+The site is served with a strict policy (`frontend/_headers`): scripts, workers, fonts and images come from this
+site only, there are no inline scripts or inline event handlers, and the page may connect only to this site and to
+the AI providers a user can pick. Third-party libraries (FullCalendar, Tippy, Popper, pdf.js) live in
+`frontend/vendor/` with pinned versions and licences in `frontend/licenses/`. Buttons use `data-click` /
+`data-change` / `data-enter` attributes handled by `frontend/js/actions.js` (only functions registered in
+`app.js` can be reached). Tests: `worker/test/frontend.test.ts` fails if an inline handler, an external script or a
+weaker policy is introduced. API answers carry `Cache-Control: no-store`.
+

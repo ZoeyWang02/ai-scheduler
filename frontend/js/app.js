@@ -12,6 +12,7 @@ import { previewTheme, setTheme, toggleNightMode } from './theme.js';
 import { initTodayBand } from './todayBand.js';
 import { initPixelIcons } from './pixelIcons.js';
 
+import { initActions } from './actions.js';
 // Module scripts run after the document is parsed, so the static icon slots in
 // index.html (<span data-icon="...">) can be filled right away, before first paint
 // of the app logic below.
@@ -96,7 +97,7 @@ document.addEventListener('DOMContentLoaded', function () {
                     importModal: closeImportModal,
                     lifePanelModal: closeLifePanelModal,
                     buddyStatusModal: closeBuddyStatusModal,
-                    editTaskModal: () => { document.getElementById('editTaskModal').style.display = 'none'; }
+                    editTaskModal: closeEditTaskModal
                 };
                 Object.entries(closers).forEach(([id, closeFn]) => {
                     const modal = document.getElementById(id);
@@ -176,11 +177,18 @@ export function refreshUserScopedViews() {
             loadLifestyleAnalysis(getActiveAnalysisPeriod());
         }
 
-Object.assign(window, {
+export function closeEditTaskModal() {
+            document.getElementById('editTaskModal').style.display = 'none';
+        }
+
+/* Everything the page can trigger from markup (data-click / data-change / data-enter, see actions.js).
+   Also put on window for the browser console and for older callers. */
+const actions = {
     closeAuthModal,
     closeBuddyStatusModal,
     closeChatDrawer,
     closeImportModal,
+    closeEditTaskModal,
     closeLifePanelModal,
     closeModal,
     closeSettingsModal,
@@ -214,4 +222,7 @@ Object.assign(window, {
     toggleReminders,
     toggleTaskDrawer,
     updateTaskColor
-});
+};
+
+initActions(actions);
+Object.assign(window, actions);

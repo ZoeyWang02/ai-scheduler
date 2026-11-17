@@ -10,6 +10,15 @@ import { taskRoutes } from "./routes/tasks";
 
 const app = new Hono<{ Bindings: Env }>();
 
+// Headers for every API answer. no-store matters: the session token is in the URL of most calls, so an answer
+// (or its URL) must never sit in a shared cache. The static site's headers are in frontend/_headers.
+app.use("/api/*", async (c, next) => {
+  await next();
+  c.header("Cache-Control", "no-store");
+  c.header("X-Content-Type-Options", "nosniff");
+  c.header("Referrer-Policy", "no-referrer");
+});
+
 app.route("/api/auth", authRoutes);
 app.route("/api/tasks", taskRoutes);
 app.route("/api/courses", courseRoutes);

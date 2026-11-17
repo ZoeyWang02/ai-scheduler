@@ -314,6 +314,15 @@ console.log("\nfrontend (static assets)");
   check("stylesheets are served", css.status === 200);
   const icon = await fetch(`${BASE}/favicon.svg`);
   check("the favicon is served", icon.status === 200);
+
+  const csp = page.headers.get("content-security-policy") ?? "";
+  check("the page is served with a Content-Security-Policy that allows scripts from this site only", /script-src 'self';/.test(csp) && !/unsafe-eval/.test(csp) && /frame-ancestors 'none'/.test(csp), csp.slice(0, 120));
+  check("and with nosniff, no-referrer and X-Frame-Options", page.headers.get("x-content-type-options") === "nosniff" && page.headers.get("referrer-policy") === "no-referrer" && page.headers.get("x-frame-options") === "DENY");
+  const vendored = await fetch(`${BASE}/vendor/fullcalendar-6.1.10/index.global.min.js`);
+  check("vendored libraries are served and cached for a year", vendored.status === 200 && /immutable/.test(vendored.headers.get("cache-control") ?? ""));
+  const apiHeaders = (await fetch(`${BASE}/api/ai/status`)).headers;
+  check("API answers are never cached (the session token is in the URL)", apiHeaders.get("cache-control") === "no-store" && apiHeaders.get("x-content-type-options") === "nosniff");
+  check("the _headers file itself is not downloadable", (await fetch(`${BASE}/_headers`)).status === 404);
 }
 
 console.log(`\n${passed} passed, ${failures.length} failed`);

@@ -36,11 +36,9 @@ The site will be public and every AI call spends your Groq quota, so these matte
       persistent Workers Logs are switched off.
 - [ ] **Sessions never expire** and signing out only clears the browser (the token stays valid until the next
       sign-in). Add an expiry and a server-side sign-out.
-- [ ] **No security headers** (CSP, X-Frame-Options, Referrer-Policy) for the static site; add a `frontend/_headers`
-      file once the scripts below are vendored, so the CSP can be strict.
-- [ ] **Libraries are loaded from public CDNs at run time**: FullCalendar (jsDelivr), Tippy and Popper (unpkg, only
-      pinned to a major version, so a new release changes the site silently) and pdf.js (cdnjs). Vendor them into
-      `frontend/` (also helps users where those CDNs are blocked or slow).
+- [x] ~~No security headers; libraries loaded from public CDNs.~~ Done: libraries are vendored (pinned versions, licences),
+      inline handlers replaced by delegated `data-click` actions, and `frontend/_headers` sets a strict CSP (scripts from
+      this site only). The Java backend does not send these headers yet (add a filter, or serve through the Worker).
 - [ ] Privacy basics for a public site: a way to delete an account and export its data, and a short privacy note
       (the AI provider receives chat text and document text).
 

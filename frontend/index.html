@@ -8,8 +8,8 @@
     <link rel="icon" href="favicon.ico" sizes="48x48">
     <link rel="apple-touch-icon" href="apple-touch-icon.png">
     <link rel="preload" href="fonts/fusion-pixel-12px-proportional-zh_hans.otf.woff2" as="font" type="font/woff2" crossorigin>
-    <link rel="stylesheet" href="https://unpkg.com/tippy.js@6/dist/tippy.css" />
-    <link rel="stylesheet" href="https://unpkg.com/tippy.js@6/themes/light-border.css" />
+    <link rel="stylesheet" href="vendor/tippy-6.3.7/tippy.css">
+    <link rel="stylesheet" href="vendor/tippy-6.3.7/light-border.css">
     <link rel="stylesheet" href="styles/tokens.css">
     <link rel="stylesheet" href="styles/themes.css">
     <link rel="stylesheet" href="styles/base.css">
@@ -17,10 +17,12 @@
     <link rel="stylesheet" href="styles/components.css">
     <link rel="stylesheet" href="styles/pixel.css">
 
-    <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.10/index.global.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@fullcalendar/core@6.1.10/locales-all.global.min.js"></script>
-    <script src="https://unpkg.com/@popperjs/core@2"></script>
-    <script src="https://unpkg.com/tippy.js@6"></script>
+    <!-- Third-party libraries are served from this site (frontend/vendor, versions pinned, licenses in
+         frontend/licenses) so the page loads no script from anywhere else: see the Content-Security-Policy in _headers. -->
+    <script src="vendor/fullcalendar-6.1.10/index.global.min.js"></script>
+    <script src="vendor/fullcalendar-6.1.10/locales-all.global.min.js"></script>
+    <script src="vendor/popper-2.11.8/popper.min.js"></script>
+    <script src="vendor/tippy-6.3.7/tippy-bundle.umd.min.js"></script>
 </head>
 <body>
 
@@ -28,13 +30,13 @@
 
     <div id="authModal" class="modal">
         <div class="modal-content" style="width: 360px; max-width: calc(100vw - 48px);">
-            <span class="close-btn" onclick="closeAuthModal()"><span class="px-ico" data-icon="close"></span></span>
+            <span class="close-btn" data-click="closeAuthModal"><span class="px-ico" data-icon="close"></span></span>
             <h2 id="authModalTitle" style="margin: 0 0 18px; font-size: 20px;">Account</h2>
             <div class="auth-panel">
                 <div id="authForm">
                     <div class="auth-tabs">
-                        <button id="authSignInTab" onclick="setAuthMode('signin')" data-i18n="btnSignInTab">Sign in</button>
-                        <button id="authSignUpTab" onclick="setAuthMode('signup')" data-i18n="btnSignUpTab">Sign up</button>
+                        <button id="authSignInTab" data-click="setAuthMode" data-args='["signin"]' data-i18n="btnSignInTab">Sign in</button>
+                        <button id="authSignUpTab" data-click="setAuthMode" data-args='["signup"]' data-i18n="btnSignUpTab">Sign up</button>
                     </div>
                     <input id="authUsername" type="text" placeholder="Username"
                         data-i18n-placeholder="authUsernamePlaceholder">
@@ -44,25 +46,25 @@
                     <input id="authPassword" type="password" placeholder="Password"
                         data-i18n-placeholder="authPasswordPlaceholder">
                     <div id="forgotPasswordRow" class="forgot-row">
-                        <button class="text-button" onclick="setAuthMode('reset')" data-i18n="forgotPasswordLink">Forgot password?</button>
+                        <button class="text-button" data-click="setAuthMode" data-args='["reset"]' data-i18n="forgotPasswordLink">Forgot password?</button>
                     </div>
                     <div id="resetFields" style="display: none; flex-direction: column; gap: 9px;">
                         <input id="resetEmail" type="email" placeholder="Email" data-i18n-placeholder="authEmailPlaceholder">
                         <div style="display: grid; grid-template-columns: 1fr auto; gap: 8px;">
                             <input id="resetCode" type="text" placeholder="Code" data-i18n-placeholder="resetCodePlaceholder">
-                            <button class="social-auth-button" onclick="requestPasswordCode()" data-i18n="sendCodeBtn">Send</button>
+                            <button class="social-auth-button" data-click="requestPasswordCode" data-i18n="sendCodeBtn">Send</button>
                         </div>
                         <input id="resetPassword" type="password" placeholder="New password"
                             data-i18n-placeholder="resetPasswordPlaceholder">
                     </div>
                     <div class="auth-actions">
-                        <button id="authSubmitBtn" onclick="submitCurrentAuth()">Sign in</button>
+                        <button id="authSubmitBtn" data-click="submitCurrentAuth">Sign in</button>
                     </div>
                     <div id="socialAuthBlock" class="auth-divider" data-i18n="orContinueWith">or continue with</div>
                     <div id="socialAuthGrid" class="social-auth-grid">
-                        <button class="social-auth-button" onclick="startExternalAuth('google')">Google</button>
-                        <button class="social-auth-button" onclick="startExternalAuth('apple')">Apple</button>
-                        <button class="social-auth-button" onclick="startExternalAuth('sso')">SSO</button>
+                        <button class="social-auth-button" data-click="startExternalAuth" data-args='["google"]'>Google</button>
+                        <button class="social-auth-button" data-click="startExternalAuth" data-args='["apple"]'>Apple</button>
+                        <button class="social-auth-button" data-click="startExternalAuth" data-args='["sso"]'>SSO</button>
                     </div>
                     <div class="auth-hint" id="authHint" data-i18n="authHint">使用用户名或邮箱，加密码登录。</div>
                 </div>
@@ -71,7 +73,7 @@
                         <div class="auth-name" id="authUserName">Guest</div>
                         <div id="authUserEmail">未登录</div>
                     </div>
-                    <button class="link-button" onclick="signOut()" data-i18n="signOutBtn">退出</button>
+                    <button class="link-button" data-click="signOut" data-i18n="signOutBtn">退出</button>
                 </div>
             </div>
         </div>
@@ -79,15 +81,15 @@
 
     <div id="lifePanelModal" class="modal">
         <div class="modal-content" style="width: 480px; max-width: calc(100vw - 48px);">
-            <span class="close-btn" onclick="closeLifePanelModal()"><span class="px-ico" data-icon="close"></span></span>
+            <span class="close-btn" data-click="closeLifePanelModal"><span class="px-ico" data-icon="close"></span></span>
             <div class="panel-title-row">
                 <div class="panel-title" data-i18n="analysisTitle">作息追踪与分析</div>
                 <div class="analysis-tabs">
-                    <button class="active" data-period="day" onclick="switchAnalysisPeriod('day', this)"
+                    <button class="active" data-period="day" data-click="switchAnalysisPeriod" data-args='["day", "@this"]'
                         data-i18n="btnDay">日</button>
-                    <button data-period="week" onclick="switchAnalysisPeriod('week', this)"
+                    <button data-period="week" data-click="switchAnalysisPeriod" data-args='["week", "@this"]'
                         data-i18n="btnWeek">周</button>
-                    <button data-period="month" onclick="switchAnalysisPeriod('month', this)"
+                    <button data-period="month" data-click="switchAnalysisPeriod" data-args='["month", "@this"]'
                         data-i18n="btnMonth">月</button>
                 </div>
             </div>
@@ -117,7 +119,7 @@
 
     <div id="buddyStatusModal" class="modal" data-theme="stardew">
         <div class="modal-content buddy-poster-modal" style="width: 420px; max-width: calc(100vw - 48px); padding: 0;">
-            <span class="close-btn" onclick="closeBuddyStatusModal()"><span class="px-ico" data-icon="close"></span></span>
+            <span class="close-btn" data-click="closeBuddyStatusModal"><span class="px-ico" data-icon="close"></span></span>
             <div class="buddy-poster-stage">
                 <div class="buddy-poster-eyebrow"><span class="px-ico" data-icon="sparkle"></span><span>STUDY BUDDY</span><span class="px-ico" data-icon="sparkle"></span></div>
                 <div class="buddy-poster-frame">
@@ -130,19 +132,19 @@
 
     <div id="settingsModal" class="modal">
         <div class="modal-content" style="width: 420px; max-width: calc(100vw - 48px);">
-            <span class="close-btn" onclick="closeSettingsModal()"><span class="px-ico" data-icon="close"></span></span>
+            <span class="close-btn" data-click="closeSettingsModal"><span class="px-ico" data-icon="close"></span></span>
             <h2 style="margin: 0 0 18px; font-size: 20px;" data-i18n="settingsTitle">设置</h2>
 
             <div class="settings-section">
                 <div class="control-group">
                     <label for="timezoneSelect"><span class="px-ico px-ico-label" data-icon="globe"></span><span data-i18n="timezoneLabel">时区同步</span></label>
-                    <select id="timezoneSelect" class="custom-input" onchange="onTimezoneChange()"></select>
+                    <select id="timezoneSelect" class="custom-input" data-change="onTimezoneChange"></select>
                 </div>
             </div>
 
             <div class="settings-section">
                 <div class="settings-section-title" data-i18n="settingsTheme">界面主题</div>
-                <select id="themeSelect" class="custom-input" onchange="previewTheme(this.value)">
+                <select id="themeSelect" class="custom-input" data-change="previewTheme" data-args='["@value"]'>
                     <option value="stardew">Stardew Valley</option>
                     <option value="stardew-night" data-i18n="themeStardewNight">星露谷 · 深夜</option>
                     <option value="light" hidden>Light</option>
@@ -163,7 +165,7 @@
             <div class="settings-section">
                 <div class="control-group">
                     <label><span class="px-ico px-ico-label" data-icon="bell"></span><span data-i18n="remindersLabel">截止提醒</span></label>
-                    <button class="btn-sync" id="remindersToggleBtn" onclick="toggleReminders()" data-i18n="remindersEnableBtn">开启截止提醒</button>
+                    <button class="btn-sync" id="remindersToggleBtn" data-click="toggleReminders" data-i18n="remindersEnableBtn">开启截止提醒</button>
                 </div>
                 <div id="remindersStatus" class="reminders-status"></div>
                 <p class="reminders-hint" data-i18n="remindersCompanionHint"></p>
@@ -172,19 +174,19 @@
             <div class="settings-section">
                 <div class="control-group">
                     <label><span class="px-ico px-ico-label" data-icon="map-pin"></span><span data-i18n="buddyPositionLabel">Study Buddy 位置</span></label>
-                    <button class="btn-sync" id="resetBuddyPositionBtn" onclick="resetBuddyWidgetPosition()" data-i18n="remindersResetPositionBtn">重置位置</button>
+                    <button class="btn-sync" id="resetBuddyPositionBtn" data-click="resetBuddyWidgetPosition" data-i18n="remindersResetPositionBtn">重置位置</button>
                 </div>
             </div>
 
             <div class="settings-section" style="margin-bottom: 0; display: flex; justify-content: flex-end;">
-                <button class="top-auth-button auth-primary" onclick="saveSettings()" data-i18n="settingsSave">保存</button>
+                <button class="top-auth-button auth-primary" data-click="saveSettings" data-i18n="settingsSave">保存</button>
             </div>
         </div>
     </div>
 
     <div id="taskModal" class="modal">
         <div class="modal-content">
-            <span class="close-btn" onclick="closeModal()"><span class="px-ico" data-icon="close"></span></span>
+            <span class="close-btn" data-click="closeModal"><span class="px-ico" data-icon="close"></span></span>
             <div style="border-bottom: 1px solid var(--border-light); padding-bottom: 16px; margin-bottom: 20px;">
                 <h2 id="modalTitle"
                     style="margin: 0; font-size: 20px; font-weight: 700; color: var(--primary); letter-spacing: 0;"
@@ -200,7 +202,7 @@
                     data-i18n="setColorLabel">标签颜色:</label>
                 <input type="color" id="taskColorPicker"
                     style="border: none; width: 28px; height: 28px; cursor: pointer; padding: 0; background: transparent;">
-                <button id="saveColorBtn" onclick="updateTaskColor()"
+                <button id="saveColorBtn" data-click="updateTaskColor"
                     style="padding: 6px 12px; background: #f1f5f9; color: #334155; border: none; border-radius: 6px; font-size: 12px; cursor: pointer; font-weight: 600;"
                     data-i18n="saveColorBtn">保存颜色</button>
             </div>
@@ -215,7 +217,7 @@
     <div id="editTaskModal" class="modal">
         <div class="modal-content">
             <span class="close-btn"
-                onclick="document.getElementById('editTaskModal').style.display='none'"><span class="px-ico" data-icon="close"></span></span>
+                data-click="closeEditTaskModal"><span class="px-ico" data-icon="close"></span></span>
             <h2 id="editModalTitle" style="margin-top:0;" data-i18n="editModalTitle">新增/编辑任务</h2>
             <input type="hidden" id="editTaskId">
             <div style="display: flex; flex-direction: column; margin-top: 16px;">
@@ -227,29 +229,29 @@
 
                 <textarea id="editTaskDesc" placeholder="详情描述..." class="custom-input" data-i18n-placeholder="editTaskDescPlaceholder"
                     style="height: 80px; resize: none;"></textarea>
-                <button onclick="saveManualTask()" class="btn-sync" style="background: var(--accent); color: white;" data-i18n="saveTaskBtn">保存任务</button>
+                <button data-click="saveManualTask" class="btn-sync" style="background: var(--accent); color: white;" data-i18n="saveTaskBtn">保存任务</button>
             </div>
         </div>
     </div>
 
     <div id="importModal" class="modal">
         <div class="modal-content" style="width: 560px; max-width: calc(100vw - 48px);">
-            <span class="close-btn" onclick="closeImportModal()"><span class="px-ico" data-icon="close"></span></span>
+            <span class="close-btn" data-click="closeImportModal"><span class="px-ico" data-icon="close"></span></span>
             <h2 style="margin-top:0;" data-i18n="importTitle">Import coursework</h2>
             <div class="auth-panel" style="gap: 12px;">
                 <input type="file" id="unifiedImportFile" accept=".json,.ics,.pdf,.docx,.txt,.md,application/json,text/calendar,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain">
                 <div class="auth-hint" data-i18n="importModalHint">Supports .ics timetables, Canvas / Coursera .json, and PDF, Word (.docx) or text documents (read by AI, so please check the result).</div>
-                <button class="btn-sync" onclick="previewUnifiedImport()" data-i18n="previewImportBtn">Preview import</button>
+                <button class="btn-sync" data-click="previewUnifiedImport" data-i18n="previewImportBtn">Preview import</button>
                 <div id="importSummary" class="auth-hint"></div>
                 <div id="importTools" class="import-tools" style="display:none;">
-                    <button type="button" class="import-tool-btn" onclick="setImportSelection('all')" data-i18n="importSelectAll">全选</button>
-                    <button type="button" class="import-tool-btn" onclick="setImportSelection('none')" data-i18n="importSelectNone">全不选</button>
-                    <button type="button" class="import-tool-btn" onclick="setImportSelection('suggested')" data-i18n="importSelectSuggested">恢复推荐</button>
+                    <button type="button" class="import-tool-btn" data-click="setImportSelection" data-args='["all"]' data-i18n="importSelectAll">全选</button>
+                    <button type="button" class="import-tool-btn" data-click="setImportSelection" data-args='["none"]' data-i18n="importSelectNone">全不选</button>
+                    <button type="button" class="import-tool-btn" data-click="setImportSelection" data-args='["suggested"]' data-i18n="importSelectSuggested">恢复推荐</button>
                     <span id="importSelectedCount" class="import-selected-count" aria-live="polite"></span>
                 </div>
                 <div id="importPreviewList"style="display: flex; flex-direction: column; gap: 8px; max-height: 320px; overflow-y: auto;"></div>
                 <div class="auth-actions">
-                    <button id="confirmImportBtn" class="btn-sync" onclick="confirmUnifiedImport()" style="display:none;" data-i18n="confirmImportBtn">Confirm selected</button>
+                    <button id="confirmImportBtn" class="btn-sync" data-click="confirmUnifiedImport" style="display:none;" data-i18n="confirmImportBtn">Confirm selected</button>
                 </div>
             </div>
         </div>
@@ -275,48 +277,48 @@
             </svg>
         </div>
 
-        <button id="chatToggleBtn" class="rail-btn" onclick="toggleChatDrawer()" title="PlanTriz" aria-label="Assistant" aria-pressed="false">
+        <button id="chatToggleBtn" class="rail-btn" data-click="toggleChatDrawer" title="PlanTriz" aria-label="Assistant" aria-pressed="false">
             <span class="px-ico" data-icon="message-text"></span>
         </button>
 
-        <button id="taskToggleBtn" class="rail-btn" onclick="toggleTaskDrawer()" title="待办速览" aria-label="Task list" aria-pressed="false" data-i18n-title="taskListLabel">
+        <button id="taskToggleBtn" class="rail-btn" data-click="toggleTaskDrawer" title="待办速览" aria-label="Task list" aria-pressed="false" data-i18n-title="taskListLabel">
             <span class="px-ico" data-icon="list-box"></span>
         </button>
 
-        <button class="rail-btn" onclick="openLifePanelModal()" title="作息追踪与分析" aria-label="Rhythm analysis" data-i18n-title="analysisTitle">
+        <button class="rail-btn" data-click="openLifePanelModal" title="作息追踪与分析" aria-label="Rhythm analysis" data-i18n-title="analysisTitle">
             <span class="px-ico" data-icon="chart-bar-big"></span>
         </button>
 
-        <button onclick="openEditModal()" class="rail-btn" title="手动添加任务" aria-label="Add task" data-i18n-title="taskListLabel">
+        <button data-click="openEditModal" class="rail-btn" title="手动添加任务" aria-label="Add task" data-i18n-title="taskListLabel">
             <span class="px-ico" data-icon="plus"></span>
         </button>
 
-        <button onclick="openImportModal()" class="rail-btn" title="导入课业" aria-label="Import coursework" data-i18n-title="openImportBtn">
+        <button data-click="openImportModal" class="rail-btn" title="导入课业" aria-label="Import coursework" data-i18n-title="openImportBtn">
             <span class="px-ico" data-icon="download"></span>
         </button>
 
         <div class="rail-spacer"></div>
 
-        <button id="nightToggleBtn" onclick="toggleNightMode()" class="rail-btn" title="切换深夜模式" aria-label="Toggle night mode" data-i18n-title="nightModeToggle">
+        <button id="nightToggleBtn" data-click="toggleNightMode" class="rail-btn" title="切换深夜模式" aria-label="Toggle night mode" data-i18n-title="nightModeToggle">
             <span class="px-ico night-icon-moon" data-icon="moon"></span>
             <span class="px-ico night-icon-sun" data-icon="sun"></span>
         </button>
 
-        <button id="langToggleBtn" class="rail-btn" onclick="toggleLanguage()" title="English" aria-label="Toggle language">中</button>
+        <button id="langToggleBtn" class="rail-btn" data-click="toggleLanguage" title="English" aria-label="Toggle language">中</button>
 
-        <button id="settingsBtn" class="rail-btn" onclick="openSettingsModal()" title="Settings" aria-label="Settings">
+        <button id="settingsBtn" class="rail-btn" data-click="openSettingsModal" title="Settings" aria-label="Settings">
             <span class="px-ico" data-icon="settings-cog"></span>
         </button>
 
         <div id="authGuestNav">
-            <button class="rail-btn" onclick="openAuthModal('signin')" title="Sign in" aria-label="Sign in" data-i18n-title="btnSignIn">
+            <button class="rail-btn" data-click="openAuthModal" data-args='["signin"]' title="Sign in" aria-label="Sign in" data-i18n-title="btnSignIn">
                 <span class="px-ico" data-icon="user"></span>
             </button>
         </div>
 
         <div id="authUserNav" style="display: none;">
             <span id="topAuthName" class="sr-only"></span>
-            <button id="topAuthButton" class="rail-btn" onclick="openAuthModal('account')" title="Account" aria-label="Account" data-i18n-title="btnAccount">
+            <button id="topAuthButton" class="rail-btn" data-click="openAuthModal" data-args='["account"]' title="Account" aria-label="Account" data-i18n-title="btnAccount">
                 <span class="px-ico" data-icon="user"></span>
             </button>
         </div>
@@ -333,9 +335,9 @@
     <div id="taskDrawer" class="drawer" role="dialog" aria-label="Task list" aria-hidden="true">
         <div class="sidebar-section-header">
             <label class="sidebar-section-label" data-i18n="taskListLabel">待办速览</label>
-            <button onclick="openEditModal()" class="add-task-btn"
+            <button data-click="openEditModal" class="add-task-btn"
                 title="手动添加任务" aria-label="手动添加任务" data-i18n-title="addTaskTitle"><span class="px-ico" data-icon="plus"></span></button>
-            <button class="close-btn" onclick="closeTaskDrawer()" aria-label="Close task list"><span class="px-ico" data-icon="close"></span></button>
+            <button class="close-btn" data-click="closeTaskDrawer" aria-label="Close task list"><span class="px-ico" data-icon="close"></span></button>
         </div>
 
         <div id="taskList"></div>
@@ -365,11 +367,11 @@
                         PlanTriz
                     </span>
                     <span id="chatStatus" class="chat-status">在线</span>
-                    <button class="close-btn" onclick="closeChatDrawer()" aria-label="Close assistant"><span class="px-ico" data-icon="close"></span></button>
+                    <button class="close-btn" data-click="closeChatDrawer" aria-label="Close assistant"><span class="px-ico" data-icon="close"></span></button>
                 </div>
                 <div id="chatList" class="chat-list"></div>
                 <div class="chat-subbar">
-                    <button type="button" class="chat-back-btn" onclick="showChatList()">
+                    <button type="button" class="chat-back-btn" data-click="showChatList">
                         <span class="px-ico" data-icon="arrow-left"></span><span data-i18n="chatBack">聊天记录</span>
                     </button>
                 </div>
@@ -378,8 +380,8 @@
                     <button type="button" id="chatAttachBtn" class="chat-attach-btn" title="Import a file" aria-label="Import a file" data-i18n-title="chatAttachTitle"><span class="px-ico" data-icon="attachment"></span></button>
                     <input type="file" id="chatFileInput" hidden accept=".json,.ics,.pdf,.docx,.txt,.md,application/json,text/calendar,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain">
                     <input type="text" id="userInput" placeholder="输入任务名称进行拆解..." data-i18n-placeholder="chatPlaceholder"
-                        onkeydown="if(event.key === 'Enter') sendMessage()">
-                    <button onclick="sendMessage()" data-i18n="sendBtn">发送</button>
+                        data-enter="sendMessage">
+                    <button data-click="sendMessage" data-i18n="sendBtn">发送</button>
                 </div>
             </div>
         </div>
