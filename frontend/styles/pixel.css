@@ -503,8 +503,9 @@ label:has(> .px-ico-label) {
 }
 
 @media (min-width: 1280px) {
-    /* The greeting line and the "nothing due" message are asides, so they stay small. */
-    [data-theme^="stardew"] :is(.tb-task-title, .tb-task-time, .tb-lv, .tb-mood) {
+    /* The greeting line and the "nothing due" message are asides, so they stay small.
+       The "up next" task rows stay at the base 12px: 24px made them taller than the calendar's own text. */
+    [data-theme^="stardew"] :is(.tb-lv, .tb-mood) {
         font-size: 24px;
     }
 
@@ -524,18 +525,12 @@ label:has(> .px-ico-label) {
         height: 32px;
     }
 
-    [data-theme^="stardew"] .tb-task-time {
-        width: 66px;
-    }
+}
 
-    [data-theme^="stardew"] .tb-check {
-        width: 24px;
-        height: 24px;
-    }
-
-    [data-theme^="stardew"] .tb-check:checked {
-        background-size: 18px 12px !important;   /* the 6x4 check mark at 3x */
-    }
+/* Chat window title: a Latin word, so the 16px pixel font is crisp. 24px (the --text-title step) was oversized. */
+[data-theme^="stardew"] .chat-header .chat-title {
+    font-family: "Ark Pixel 16", var(--font-ui) !important;
+    font-size: 16px;
 }
 
 /* ==========================================================================
