@@ -178,7 +178,8 @@ export function getBuddyGreeting() {
             const lang = localStorage.getItem('appLang') || 'zh';
             const dict = translations[lang];
             const hour = new Date().getHours();
-            const salutation = hour < 12 ? dict.greetingMorning : hour < 18 ? dict.greetingAfternoon : dict.greetingEvening;
+            // 0:00-4:59 is still the night, not "morning".
+            const salutation = hour < 5 ? dict.greetingNight : hour < 12 ? dict.greetingMorning : hour < 18 ? dict.greetingAfternoon : dict.greetingEvening;
             const mood = state.lastBuddyState ? state.lastBuddyState.mood : 'calm';
             const lines = dict['buddyLines' + (mood.charAt(0).toUpperCase() + mood.slice(1))] || dict.buddyLinesCalm;
             const line = lines[Math.floor(Math.random() * lines.length)];
