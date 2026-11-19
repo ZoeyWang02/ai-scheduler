@@ -4,6 +4,10 @@ const POSITION_KEY = 'buddyWidgetPos';
 const DRAG_THRESHOLD = 4;
 const EDGE_MARGIN = 16;
 const IDLE_MS = 5 * 60 * 1000;
+const CHAT_SIZE_KEY = 'chatWindowSize';
+const CHAT_MIN_WIDTH = 280;
+const CHAT_MIN_HEIGHT = 320;
+const CHAT_KEY_STEP = 24;
 
 let widget, avatarEl, flyoutEl, greetingEl, bubbleEl, chatDrawerEl;
 let chatPopper;
@@ -111,6 +115,124 @@ export function pulseBuddyWidget() {
 
 export function updateChatWindowPosition() {
     if (chatPopper) chatPopper.update();
+}
+
+/* ---- Resizing the chat window ---------------------------------------------------------------
+   The window is placed by Popper next to the widget, so it can only grow away from the widget.
+   The grip therefore sits on the corner farthest from the widget (see the `resizeCorner` modifier). */
+
+/** Keeps a requested size between the minimum and what fits in the viewport (same limits as the CSS). */
+export function clampChatSize(width, height, viewportWidth = window.innerWidth, viewportHeight = window.innerHeight) {
+    const maxWidth = Math.max(CHAT_MIN_WIDTH, viewportWidth - 32);
+    const maxHeight = Math.max(CHAT_MIN_HEIGHT, viewportHeight - 48);
+    return {
+        width: Math.round(Math.min(Math.max(width, CHAT_MIN_WIDTH), maxWidth)),
+        height: Math.round(Math.min(Math.max(height, CHAT_MIN_HEIGHT), maxHeight)),
+    };
+}
+
+function applyChatSize(width, height) {
+    const size = clampChatSize(width, height);
+    chatDrawerEl.style.width = `${size.width}px`;
+    chatDrawerEl.style.height = `${size.height}px`;
+    if (chatPopper) chatPopper.forceUpdate();
+    return size;
+}
+
+function savedChatSize() {
+    try {
+        const size = JSON.parse(localStorage.getItem(CHAT_SIZE_KEY));
+        return size && Number.isFinite(size.width) && Number.isFinite(size.height) ? size : null;
+    } catch {
+        return null;
+    }
+}
+
+function saveChatSize(size) {
+    try { localStorage.setItem(CHAT_SIZE_KEY, JSON.stringify(size)); } catch { /* storage blocked: the size just is not remembered */ }
+}
+
+function resetChatSize() {
+    chatDrawerEl.style.width = '';
+    chatDrawerEl.style.height = '';
+    try { localStorage.removeItem(CHAT_SIZE_KEY); } catch { /* ignore */ }
+    if (chatPopper) chatPopper.forceUpdate();
+}
+
+/** A Popper modifier: remembers which corner of the window is farthest from the widget. */
+const resizeCornerModifier = {
+    name: 'resizeCorner',
+    enabled: true,
+    phase: 'afterWrite',
+    fn({ state }) {
+        const at = state.modifiersData.popperOffsets;
+        if (!at) return;
+        const reference = state.rects.reference;
+        const popper = state.rects.popper;
+        const left = at.x + popper.width / 2 < reference.x + reference.width / 2;
+        const top = at.y + popper.height / 2 < reference.y + reference.height / 2;
+        state.elements.popper.dataset.corner = (top ? 't' : 'b') + (left ? 'l' : 'r');
+    },
+};
+
+function initChatResize() {
+    const handle = document.getElementById('chatResizeHandle');
+    if (!handle) return;
+
+    const saved = savedChatSize();
+    if (saved) applyChatSize(saved.width, saved.height);
+
+    const corner = () => chatDrawerEl.dataset.corner || 'tl';
+
+    handle.addEventListener('pointerdown', (e) => {
+        if (e.button !== undefined && e.button !== 0) return;
+        e.preventDefault();
+        e.stopPropagation();
+        handle.setPointerCapture(e.pointerId);
+        handle.classList.add('dragging');
+        const grabbed = corner(); // the window may move while it is dragged; the corner stays the one grabbed
+        const onMove = (ev) => {
+            const rect = chatDrawerEl.getBoundingClientRect();
+            applyChatSize(
+                grabbed.endsWith('l') ? rect.right - ev.clientX : ev.clientX - rect.left,
+                grabbed.startsWith('t') ? rect.bottom - ev.clientY : ev.clientY - rect.top,
+            );
+        };
+        const onUp = () => {
+            handle.classList.remove('dragging');
+            handle.removeEventListener('pointermove', onMove);
+            handle.removeEventListener('pointerup', onUp);
+            handle.removeEventListener('pointercancel', onUp);
+            const rect = chatDrawerEl.getBoundingClientRect();
+            saveChatSize({ width: Math.round(rect.width), height: Math.round(rect.height) });
+        };
+        handle.addEventListener('pointermove', onMove);
+        handle.addEventListener('pointerup', onUp);
+        handle.addEventListener('pointercancel', onUp);
+    });
+
+    handle.addEventListener('dblclick', resetChatSize);
+
+    // Keyboard: the arrow keys grow or shrink the window by one step. "Toward the grip's own corner" grows it.
+    handle.addEventListener('keydown', (e) => {
+        const dx = { ArrowLeft: -1, ArrowRight: 1 }[e.key] || 0;
+        const dy = { ArrowUp: -1, ArrowDown: 1 }[e.key] || 0;
+        if (!dx && !dy) return;
+        e.preventDefault();
+        e.stopPropagation();
+        const rect = chatDrawerEl.getBoundingClientRect();
+        const c = corner();
+        const size = applyChatSize(
+            rect.width + dx * CHAT_KEY_STEP * (c.endsWith('l') ? -1 : 1),
+            rect.height + dy * CHAT_KEY_STEP * (c.startsWith('t') ? -1 : 1),
+        );
+        saveChatSize(size);
+    });
+
+    window.addEventListener('resize', () => {
+        const rect = chatDrawerEl.getBoundingClientRect();
+        if (chatDrawerEl.style.width) applyChatSize(rect.width, rect.height);
+    });
 }
 
 export function showBuddyBubble(text, opts = {}) {
@@ -236,8 +358,10 @@ export function initBuddyWidget() {
             { name: 'preventOverflow', options: { padding: EDGE_MARGIN } },
             { name: 'offset', options: { offset: [0, 12] } },
             { name: 'computeStyles', options: { gpuAcceleration: false } },
+            resizeCornerModifier,
         ],
     });
+    initChatResize();
 
     restorePosition();
     window.addEventListener('resize', () => {
