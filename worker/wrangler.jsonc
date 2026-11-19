@@ -18,7 +18,7 @@
     {
       "binding": "DB",
       "database_name": "plantriz",
-      "database_id": "00000000-0000-0000-0000-000000000000",
+      "database_id": "2b5e224a-5efd-4989-9cba-566ec9c5f0d6",
       "migrations_dir": "migrations"
     }
   ],
