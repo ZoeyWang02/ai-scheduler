@@ -14,7 +14,7 @@ export const DEFAULT_WORKER_PORT = 8790;
 
 /** What the fake model answers with when it reads a document (dates are in 2027 so they are never "past"). */
 export const REPLY = JSON.stringify([
-  { kind: "task", title: "Midterm exam", description: "Covers chapters 1-5.", dueDate: "2027-11-19T15:00", confidence: 0.95, evidence: "Midterm: Friday Nov 19, 3pm" },
+  { kind: "event", title: "Midterm exam", description: "Covers chapters 1-5.", dueDate: "2027-11-19T15:00", end: "2027-11-19T17:00", confidence: 0.95, evidence: "Midterm: Friday Nov 19, 3pm" },
   { kind: "task", title: "Project proposal", dueDate: "2027-11-24", confidence: 0.8 },
   { kind: "course", title: "STAT 400 lecture", start: "2027-11-15T10:00", end: "2027-11-15T10:50", location: "Everitt 2205", confidence: 0.9 },
 ]);

@@ -18,7 +18,7 @@ export interface LifestyleAnalysis {
   hourlyStudy: { hour: number; hours: number }[];
 }
 
-type AnalysisTask = Pick<TaskRow, "due_date" | "description" | "completed">;
+type AnalysisTask = Pick<TaskRow, "due_date" | "description" | "completed"> & { end_date?: string | null };
 type FocusStyle = "fragmented" | "deep" | "steady";
 
 // "Estimated: 2 h" (from chat), "Estimated time: 1.50 hours" (Coursera), "预计耗时 2 小时". The Java regex was
@@ -81,7 +81,8 @@ export function analyzeLifestyle(tasks: AnalysisTask[], timeZone: string, period
   const startDay = new Date(Date.UTC(+today.slice(0, 4), +today.slice(5, 7) - 1, +today.slice(8, 10) - back));
   const startUtc = localToUtc(formatStored({ y: startDay.getUTCFullYear(), mo: startDay.getUTCMonth() + 1, d: startDay.getUTCDate(), h: 0, mi: 0, s: 0 }), timeZone);
 
-  const inPeriod = tasks.filter((t) => t.due_date !== null && t.due_date >= startUtc); // same text format: string order is time order
+  // An event (it has an end) is a stretch of time, not a deadline, so it says nothing about when the user works against deadlines.
+  const inPeriod = tasks.filter((t) => t.due_date !== null && !t.end_date && t.due_date >= startUtc); // same text format: string order is time order
   const toLocal = makeUtcToLocal(timeZone);
   const buckets = [0, 0, 0, 0];
   const hourly = new Array<number>(24).fill(0);

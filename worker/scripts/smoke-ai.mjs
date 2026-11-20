@@ -53,6 +53,7 @@ try {
   check("times are converted from the user's zone (15:00 Chicago = 21:00 UTC)", preview.items[0].dueDate === "2027-11-19T21:00", JSON.stringify(preview.items[0]));
   check("a bare date becomes 23:59 local", preview.items[1].dueDate === "2027-11-25T05:59", JSON.stringify(preview.items[1]));
   check("the class session has start, end and room", preview.items[2].start === "2027-11-15T16:00" && preview.items[2].end === "2027-11-15T16:50" && preview.items[2].location === "Everitt 2205");
+  check("an exam with a start and an end becomes an event: a task row with an end (21:00-23:00 UTC)", preview.items[0].end === "2027-11-19T23:00" && preview.items[1].end === null, JSON.stringify(preview.items.slice(0, 2)));
   check("the source label comes from the file extension", preview.items[0].source === "DOCX");
   check("the quote it relied on is shown as a note", preview.items[0].notes === 'From the document: "Midterm: Friday Nov 19, 3pm"', preview.items[0].notes);
   check("every item starts as new and not past", preview.items.every((i) => i.status === "new" && i.past === false));
@@ -68,6 +69,7 @@ try {
   r = await call("GET", "/api/tasks", { query: q });
   const midterm = r.body.find((t) => t.title === "Midterm exam");
   check("the midterm is on the calendar at 15:00 local", midterm && midterm.dueDate === "2027-11-19T15:00" && midterm.description === "Covers chapters 1-5.", JSON.stringify(midterm));
+  check("(and as an event, until 17:00 local)", midterm.endDate === "2027-11-19T17:00", JSON.stringify(midterm));
   r = await call("GET", "/api/courses", { query: q });
   check("the lecture is in the course list", r.body.length === 1 && r.body[0].title === "STAT 400 lecture" && r.body[0].start === "2027-11-15T10:00");
 
@@ -112,7 +114,7 @@ try {
   check("the rate-limited main model was retried with the fallback model", seen.slice(-2).map((s) => s.model).join() === "mock-big,mock-small", JSON.stringify(seen.map((s) => s.model)));
   check("the model got the system prompt, the earlier turns (without the injected system turn) and the new message", chatCall.messages.map((m) => m.role).join() === "system,user,assistant,user" && chatCall.messages.at(-1).content === "move them to the evening", JSON.stringify(chatCall.messages.map((m) => m.role)));
   check("temperature is 0.3 for chat", chatCall.temperature === 0.3);
-  check("the prompt lists the user's own tasks and classes (in local time)", chatCall.system.includes("title=Midterm exam, Due=2027-11-19T15:00") && chatCall.system.includes("title=Project proposal, Due=2027-11-24T23:59"), chatCall.system.slice(0, 700));
+  check("the prompt lists the user's own tasks and classes (in local time)", chatCall.system.includes("title=Midterm exam, Event, Start=2027-11-19T15:00, End=2027-11-19T17:00") && chatCall.system.includes("title=Project proposal, Due=2027-11-24T23:59"), chatCall.system.slice(0, 700));
   check("the prompt contains the rhythm profile, the 14-day calendar and the language rule", chatCall.system.includes("User's rhythm profile: ") && /\(today\); .*\(tomorrow\)/.test(chatCall.system) && chatCall.system.endsWith("ENTIRELY IN ENGLISH."));
   check("a class two weeks away is not a busy time yet", !chatCall.system.includes("STAT 400 lecture: 2027"));
 
@@ -224,7 +226,7 @@ try {
   r = await call("POST", "/api/ai/context", { json: { ...authBody, message: "move them to the evening", lang: "en", history } });
   check("context returns the chat messages (200)", r.status === 200 && Array.isArray(r.body.messages), JSON.stringify(r.body).slice(0, 200));
   check("they are system + earlier turns (injected system turn dropped) + the new message", r.body.messages.map((m) => m.role).join() === "system,user,assistant,user" && r.body.messages.at(-1).content === "move them to the evening");
-  check("the system prompt has the user's tasks, rhythm profile and the language rule", r.body.messages[0].content.includes("title=Midterm exam, Due=2027-11-19T15:00") && r.body.messages[0].content.includes("User's rhythm profile: ") && r.body.messages[0].content.endsWith("ENTIRELY IN ENGLISH."));
+  check("the system prompt has the user's tasks, rhythm profile and the language rule", r.body.messages[0].content.includes("title=Midterm exam, Event, Start=2027-11-19T15:00, End=2027-11-19T17:00") && r.body.messages[0].content.includes("User's rhythm profile: ") && r.body.messages[0].content.endsWith("ENTIRELY IN ENGLISH."));
   check("no model was called by the Worker", seen.length === 0);
   r = await call("POST", "/api/ai/context", { json: { message: "hello", lang: "zh", timezone: "America/Chicago" } });
   check("a guest gets a prompt without anyone's data (200)", r.status === 200 && r.body.messages[0].content.startsWith("你是一个UIUC的学术助理") && !r.body.messages[0].content.includes("Midterm exam"));

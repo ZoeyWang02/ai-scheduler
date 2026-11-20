@@ -94,7 +94,9 @@ export function taskToCalendarEvent(task) {
                     localEnd: isEvent ? task.endDate : null
                 },
                 color: evColor,
-                classNames: isEvent ? ['fc-kind-event'] : ['fc-kind-task']
+                classNames: isEvent ? ['fc-kind-event'] : ['fc-kind-task'],
+                editable: true,
+                durationEditable: isEvent
             };
         }
 
@@ -124,7 +126,8 @@ export function courseToCalendarEvent(event) {
                     localStart: event.start,
                     localEnd: event.end
                 },
-                color: '#16b99a'
+                color: '#16b99a',
+                editable: false
             };
         }
 
@@ -137,6 +140,11 @@ export function initCalendar(timezone) {
                 height: '100%',
                 // A task is a deadline with no end; draw it as a short block. Events and classes carry their real end.
                 defaultTimedEventDuration: '00:30',
+                // Tasks and events can be dragged (and events stretched); each change is confirmed first.
+                editable: true,
+                allDaySlot: false,
+                eventDrop: (info) => confirmAndSaveEventChange(info),
+                eventResize: (info) => confirmAndSaveEventChange(info),
                 headerToolbar: {
                     left: 'prev,next today',
                     center: 'title',
@@ -184,6 +192,44 @@ export function initCalendar(timezone) {
         }
 
 /** `date` is the finished time line (see timeLine in timeSpan.js); `rawDate` / `rawEnd` are the local start and end the edit form opens with. */
+/** A Date as the local wall-clock text the API uses ("YYYY-MM-DDTHH:MM:SS"). The calendar shows tasks at the
+ *  wall-clock time the server gave, so its dates read back the same way. */
+export function localWallClock(date) {
+            const p = (n) => String(n).padStart(2, '0');
+            return `${date.getFullYear()}-${p(date.getMonth() + 1)}-${p(date.getDate())}T${p(date.getHours())}:${p(date.getMinutes())}:00`;
+        }
+
+/** After a task or event is dragged or resized: ask, then save the new time; "No" puts it back. */
+export async function confirmAndSaveEventChange(info) {
+            const lang = localStorage.getItem('appLang') || 'zh';
+            const dict = translations[lang];
+            const ext = info.event.extendedProps;
+            const existing = (state.lastLoadedTasks || []).find(t => Number(t.id) === Number(ext.taskId));
+            if (!ext.taskId || !existing || !info.event.start) { info.revert(); return; }
+
+            const start = localWallClock(info.event.start);
+            const end = ext.kind === 'event' && info.event.end ? localWallClock(info.event.end) : null;
+            if (!confirm(`${info.event.title}\n${timeLine(start, end, lang)}\n\n${dict.confirmDragEdit}`)) { info.revert(); return; }
+
+            const currentTz = document.getElementById('timezoneSelect').value;
+            try {
+                // Title and description are sent as they are, so the saved translations stay.
+                const res = await fetch(`${API_BASE}/api/tasks/${existing.id}?authToken=${encodeURIComponent(getAuthToken())}&timezone=${encodeURIComponent(currentTz)}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ title: existing.title, description: existing.description, dueDate: start, endDate: end })
+                });
+                if (!res.ok) throw new Error(String(res.status));
+                state.calendar.refetchEvents();
+                loadTasks(currentTz);
+                loadLifestyleAnalysis(getActiveAnalysisPeriod(), currentTz, true);
+                showToast(dict.taskSavedToast, 'success');
+            } catch (e) {
+                info.revert();
+                showToast(dict.alertSaveFailed, 'error');
+            }
+        }
+
 export function showModal(title, date, desc, taskId, color, courseId = null, rawDate = null, rawEnd = null) {
             const lang = localStorage.getItem('appLang') || 'zh';
             state.currentOpenedTaskId = taskId;
@@ -673,12 +719,14 @@ export function buildImportRow(item, preview) {
             let when;
             if (item.kind === 'course') {
                 when = `${formatImportTime(item.start, timezone, lang)} – ${formatImportTime(item.end, timezone, lang, true)}`;
+            } else if (item.dueDate && item.end) {
+                when = `${formatImportTime(item.dueDate, timezone, lang)} – ${formatImportTime(item.end, timezone, lang, true)}`;
             } else if (item.dueDate) {
                 when = `${dict.importDueLabel} ${formatImportTime(item.dueDate, timezone, lang)}`;
             } else {
                 when = dict.importNoDeadline;
             }
-            const kindLabel = item.kind === 'course' ? dict.importKindCourse : dict.importKindTask;
+            const kindLabel = item.kind === 'course' ? dict.importKindCourse : item.end ? dict.importKindEvent : dict.importKindTask;
             const confidence = preview.aiFallbackUsed
                 ? ` · ${dict.importConfidence} ${Math.round((item.confidence || 0) * 100)}%` : '';
             const metaLines = [`${kindLabel} · ${item.source || ''}${confidence}`, when];

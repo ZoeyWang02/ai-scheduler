@@ -147,8 +147,10 @@ export async function confirmImport(db: D1Database, userId: number, importId: st
     if (it.kind === "task") {
       const match = matchTask(it, working);
       if (match.status === "update" && match.existing) {
-        // Only the deadline is synced from upstream; the user's own edits stay.
-        writes.push(db.prepare("UPDATE tasks SET due_date = ? WHERE id = ?").bind(it.dueDate, match.existing.id));
+        // Only the deadline (and an event's end) is synced from upstream; the user's own edits stay.
+        writes.push(it.end
+          ? db.prepare("UPDATE tasks SET due_date = ?, end_date = ? WHERE id = ?").bind(it.dueDate, it.end, match.existing.id)
+          : db.prepare("UPDATE tasks SET due_date = ? WHERE id = ?").bind(it.dueDate, match.existing.id));
         match.existing.due_date = it.dueDate;
         result.tasksUpdated++;
       } else if (match.status === "duplicate" && match.existing) {
@@ -158,8 +160,8 @@ export async function confirmImport(db: D1Database, userId: number, importId: st
         }
         result.duplicates++;
       } else {
-        writes.push(db.prepare("INSERT INTO tasks (title, description, due_date, import_key, user_id) VALUES (?, ?, ?, ?, ?)")
-          .bind(it.title, it.description, it.dueDate, it.importKey, userId));
+        writes.push(db.prepare("INSERT INTO tasks (title, description, due_date, end_date, import_key, user_id) VALUES (?, ?, ?, ?, ?, ?)")
+          .bind(it.title, it.description, it.dueDate, it.end, it.importKey, userId));
         working.push({ id: -1, title: it.title, description: it.description, due_date: it.dueDate, completed: 0, completed_at: null, ai_metadata: null, preceded_by_id: null, user_id: userId, color: null, import_key: it.importKey });
         result.tasksCreated++;
       }

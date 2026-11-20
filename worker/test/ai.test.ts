@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { buildCalendarContext, buildSystemPrompt, chatReply, MAX_HISTORY_CHARS, MAX_HISTORY_MESSAGES, sanitizeHistory, translateText } from "../src/ai";
+import { buildCalendarContext, buildChatMessages, buildSystemPrompt, chatReply, MAX_HISTORY_CHARS, MAX_HISTORY_MESSAGES, sanitizeHistory, translateText } from "../src/ai";
 import type { CourseRow, TaskRow } from "../src/db";
 import type { Env } from "../src/env";
 
@@ -28,6 +28,21 @@ const courses = [
   { id: 2, title: "Old class", start_time: "2026-11-10T17:30:00", end_time: "2026-11-10T18:20:00" },           // already past
   { id: 3, title: "Far away", start_time: "2027-03-01T17:30:00", end_time: "2027-03-01T18:20:00" },           // beyond two weeks
 ];
+
+describe("the task list in the prompt", () => {
+  it("shows an event as start and end, a task as its deadline, and marks what is done", async () => {
+    const list = [
+      { id: 7, title: "Study group", due_date: "2026-11-16T16:00:00", end_date: "2026-11-16T17:30:00", description: null, completed: 0 },
+      { id: 8, title: "Homework", due_date: "2026-11-16T22:00:00", end_date: null, description: null, completed: 1 },
+    ];
+    const en = (await buildChatMessages(env(fakeDb(list, [])), { message: "hi", userId: 5, timezone: CHI, lang: "en" }, NOW))[0].content;
+    expect(en).toContain("- id=7, title=Study group, Event, Start=2026-11-16T10:00, End=2026-11-16T11:30");
+    expect(en).toContain("- id=8, title=Homework, Due=2026-11-16T16:00, done");
+    const zh = (await buildChatMessages(env(fakeDb(list, [])), { message: "hi", userId: 5, timezone: CHI, lang: "zh" }, NOW))[0].content;
+    expect(zh).toContain("事件, 开始=2026-11-16T10:00, 结束=2026-11-16T11:30");
+    expect(zh).toContain("已完成");
+  });
+});
 
 describe("sanitizeHistory", () => {
   it("keeps user and assistant turns in order and drops everything else", () => {
@@ -71,7 +86,7 @@ describe("buildSystemPrompt", () => {
 
   it("lays the context out in the Java order, with the language rule last", () => {
     const p = buildSystemPrompt(parts);
-    const order = ["You are a UIUC academic assistant", "- id=1, title=A", "PROFILE", "Avoid these busy times", "BUSY", "Current time is: 2026-11-14T12:00:00", "CAL", "(A) The user TELLS", "(B) The user ASKS", "(C) Anything else", "[Proposed plan]", '"action": "add"', "CRITICAL: You MUST communicate"];
+    const order = ["You are a UIUC academic assistant", "- id=1, title=A", "PROFILE", "Avoid these busy times", "BUSY", "Current time is: 2026-11-14T12:00:00", "CAL", "(A) The user TELLS", "(B) The user ASKS you to plan", "(C) The user wants to CHANGE", "(D) The user wants to DELETE", "(E) The user ASKS about", "(F) Anything else", "[Proposed plan]", '"action": "add"', "CRITICAL: You MUST communicate"];
     const positions = order.map((s) => p.indexOf(s));
     expect(positions.every((i) => i >= 0), JSON.stringify(order.filter((_, i) => positions[i] < 0))).toBe(true);
     expect([...positions].sort((a, b) => a - b)).toEqual(positions);
@@ -81,8 +96,15 @@ describe("buildSystemPrompt", () => {
   it("has a Chinese version with the same structure", () => {
     const p = buildSystemPrompt({ ...parts, isEn: false });
     expect(p.startsWith("你是一个UIUC的学术助理")).toBe(true);
-    for (const s of ["以下是用户未来两周的课程/不可用时间", "现在的时间是：2026-11-14T12:00:00。", "（A）用户在告知", "（B）用户请你制定计划", "（C）其他情况", "[Proposed plan]", '"action": "delete"']) expect(p).toContain(s);
+    for (const s of ["以下是用户未来两周的课程/不可用时间", "现在的时间是：2026-11-14T12:00:00。", "（A）用户在告知", "（B）用户请你制定计划", "（C）用户想修改", "（D）用户想删除", "（E）用户询问自己的日程", "（F）其他情况", "[Proposed plan]", '"action": "delete"']) expect(p).toContain(s);
     expect(p.endsWith("关键规则：请全程使用中文回答用户并提供建议。")).toBe(true);
+  });
+
+  it("knows how to change and delete what is already in the list, and never claims it is already done", () => {
+    const en = buildSystemPrompt(parts);
+    for (const s of ['"action": "update"', "ONE action=update item", "Do not delete and re-add it", "action=delete item", "ONLY from the task list", "nothing changes until the user presses the Apply button", "kind=event"]) expect(en).toContain(s);
+    const zh = buildSystemPrompt({ ...parts, isEn: false });
+    for (const s of ["action=update 条目", "不要先删除再新增", "什么都不会改变", "kind=event", "只能取自上面的任务列表"]) expect(zh).toContain(s);
   });
 });
 

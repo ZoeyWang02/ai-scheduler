@@ -77,10 +77,10 @@ Acceptance: a scanned syllabus PDF and a PNG of a timetable each produce a previ
 ### Tasks and events
 A task is a deadline (`dueDate`, no end); an event has a start and an end (`dueDate` + `endDate`). The edit form has a
 type picker, the calendar draws a task as a short dashed block and an event with its real length, and the details box
-and tooltip say "Due: ..." or "Time: start-end (length)". Not done yet:
-- [ ] Events from an AI plan or a document import still come in as tasks (the AI returns one date). Let the model return an
-      end time for things like meetings and exams, and turn those into events.
-- [ ] The study-rhythm analysis counts an event's start like a deadline.
+and tooltip say "Due: ..." or "Time: start-end (length)". Tasks and events can be dragged on the calendar (an event can also
+be stretched) after a "Are you sure?" prompt. The chat and document import make events of meetings, exams and the like
+(`kind: "event"`; an event's end is its start plus the length the user gave), and the study-rhythm analysis leaves events
+out. The chat also understands changing (`action: "update"`) and deleting what is already in the list. Not done yet:
 - [ ] Class sessions (`course_events`) cannot be edited or created by hand; they could become events in `tasks`.
 
 ### Task titles in both languages: what is not covered yet

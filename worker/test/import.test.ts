@@ -149,6 +149,26 @@ describe("documents read by the AI", () => {
     expect(items[1].notes).toContain("Review before confirming");
   });
 
+  it("makes an event of an exam or meeting that has a start and an end, and a task of one without a usable end", () => {
+    const items = itemsFromModelReply(JSON.stringify([
+      { kind: "event", title: "Midterm", start: "2026-11-20T19:00", end: "2026-11-20T21:00", location: "Room 1" },
+      { kind: "event", title: "Interview", dueDate: "2026-11-21T10:00", end: "2026-11-21T10:45" },
+      { kind: "event", title: "No end", start: "2026-11-22T09:00" },
+      { kind: "event", title: "Backwards", start: "2026-11-22T09:00", end: "2026-11-22T08:00" },
+    ]), "x.pdf", CHI);
+    expect(items.map((i) => [i.kind, i.title, i.dueDate, i.end])).toEqual([
+      ["task", "Midterm", "2026-11-21T01:00:00", "2026-11-21T03:00:00"],
+      ["task", "Interview", "2026-11-21T16:00:00", "2026-11-21T16:45:00"],
+      ["task", "No end", "2026-11-22T15:00:00", null],
+      ["task", "Backwards", "2026-11-22T15:00:00", null],
+    ]);
+    expect(items[0].location).toBe("Room 1");
+  });
+
+  it("tells the model about events", () => {
+    expect(documentPrompt(CHI, { y: 2026, mo: 11, d: 14 })).toContain("kind=event");
+  });
+
   it("takes a task's time from `start` when the model put it there instead of `dueDate`", () => {
     const items = itemsFromModelReply('[{"kind":"task","title":"Midterm 2","start":"2026-11-20T19:00","end":"2026-11-20T21:00"},{"kind":"task","title":"Quiz","dueDate":"nonsense","start":"2026-11-21T09:00"}]', "x.pdf", CHI);
     expect(items.map((i) => i.dueDate)).toEqual(["2026-11-21T01:00:00", "2026-11-21T15:00:00"]);

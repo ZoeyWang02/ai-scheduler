@@ -41,6 +41,14 @@ describe("analyzeLifestyle", () => {
     expect([normalizePeriod("DAY"), normalizePeriod("month"), normalizePeriod("week"), normalizePeriod("year"), normalizePeriod(null)]).toEqual(["day", "month", "week", "week", "week"]);
   });
 
+  it("does not count events (they have an end) as deadlines", () => {
+    const tasks = [
+      due("2026-11-16", "09:00"),
+      { ...due("2026-11-16", "23:00"), end_date: "2026-11-17T06:00:00" },
+    ];
+    expect(analyzeLifestyle(tasks, CHI, "week", "en", NOW).totalTasks).toBe(1);
+  });
+
   it("buckets deadlines by the user's local hour and adds up the hours", () => {
     const tasks = [
       due("2026-11-16", "09:00", { description: "Estimated: 2 h" }), // morning

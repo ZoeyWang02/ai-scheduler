@@ -4,12 +4,14 @@ import { translations } from './i18n.js';
 import { escapeHtml, linkify, showToast } from './utils.js';
 import { getChatAvatarSrc } from './buddy.js';
 import { getAuthToken, getUserId, requireUser } from './auth.js';
-import { getActiveAnalysisPeriod, loadLifestyleAnalysis } from './analytics.js';
+import { getActiveAnalysisPeriod, loadLifestyleAnalysis, taskDisplayText } from './analytics.js';
 import { buildImportRow, confirmImportRequest, describeImportPreview, importResultMessage, loadTasks, requestImportPreview } from './scheduler.js';
 import { refreshUserScopedViews } from './app.js';
 import { addMessage, deleteConversation, getConversation, loadConversations, updateMessage } from './chatHistory.js';
 import { AssistantRequestError, chatComplete, describeAiError, hasOwnKey, translateWithOwnKey } from './llmClient.js';
 import { translateTasks } from './taskTranslate.js';
+import { buildUpdate, isUnreadable, newTaskFromItem, normalizeItem, splitReply } from './planItems.js';
+import { spanText, timeLine } from './timeSpan.js';
 
 import { pixelIcon } from './pixelIcons.js';
 
@@ -102,14 +104,16 @@ export function refreshAiAvailability() {
 const HISTORY_TURNS = 8;
 
 export function describePlan(planJson, applied = false) {
-            let tasks;
-            try { tasks = JSON.parse(planJson); } catch (e) { return ''; }
-            if (!Array.isArray(tasks) || !tasks.length) return '';
-            const steps = tasks.map(t => (t.action || 'add') === 'delete'
-                ? `delete "${t.step || ''}" (taskId ${t.taskId || ''})`
-                : `${t.step || ''} (${t.estimatedHours || 1}h) @ ${t.suggestedDate || 'unscheduled'}`);
-            return `${applied ? '[Applied plan]' : '[Proposed plan]'} ${steps.join('; ')}`;
-        }
+    let items;
+    try { items = JSON.parse(planJson); } catch (e) { return ''; }
+    if (!Array.isArray(items) || !items.length) return '';
+    const steps = items.map(normalizeItem).filter(Boolean).map(t => {
+        if (t.action === 'delete') return `delete "${t.step || ''}" (taskId ${t.taskId})`;
+        if (t.action === 'update') return `change taskId ${t.taskId}${t.step ? ` to "${t.step}"` : ''}${t.suggestedDate ? ` @ ${t.suggestedDate}` : ''}${t.estimatedHours ? ` (${t.estimatedHours}h)` : ''}`;
+        return `${t.kind === 'event' ? 'event ' : ''}${t.step || ''} (${t.estimatedHours || 1}h) @ ${t.suggestedDate || 'unscheduled'}`;
+    });
+    return steps.length ? `${applied ? '[Applied plan]' : '[Proposed plan]'} ${steps.join('; ')}` : '';
+}
 
 export function buildChatHistory(conversation = currentConversationId ? getConversation(currentConversationId) : null) {
             if (!conversation) return [];
@@ -126,17 +130,18 @@ export function buildChatHistory(conversation = currentConversationId ? getConve
             return turns.slice(-HISTORY_TURNS);
         }
 
-// Shows (and stores) an AI reply: prose first, then the plan box when the reply carries a JSON plan.
+// Shows (and stores) an AI reply: prose first, then the plan box when the reply carries a plan. Raw JSON is never shown.
 function deliverAiReply(data, request, conversationId) {
-            const jsonMatch = extractJsonArray(data);
-            if (jsonMatch) {
-                const textBefore = textBeforePlan(data, jsonMatch);
-                if (textBefore.trim()) appendMessage('ai', textBefore, false, { conversationId });
-                appendAiPlanner(jsonMatch, { request, conversationId });
-            } else {
-                appendMessage('ai', data, false, { conversationId });
-            }
-        }
+    const lang = localStorage.getItem('appLang') || 'zh';
+    const parsed = splitReply(data);
+    if (isUnreadable(data, parsed)) {
+        appendMessage('ai', translations[lang].aiPlanUnreadable, false, { conversationId });
+        return;
+    }
+    if (parsed.text) appendMessage('ai', parsed.text, false, { conversationId });
+    if (parsed.plan) appendAiPlanner(parsed.plan, { request, conversationId });
+    if (parsed.after) appendMessage('ai', parsed.after, false, { conversationId });
+}
 
 export function triggerAutoAiPlanner(type) {
             const platform = type === 'canvas' ? 'Canvas' : 'Coursera';
@@ -160,74 +165,89 @@ export function triggerAutoAiPlanner(type) {
    persist:false plus the saved `applied` flag and message id. `request` is the user message the
    plan answers, so the tasks it creates can say where they came from. */
 export function appendAiPlanner(jsonString, { request = '', conversationId, persist = true, applied = false, messageId = '' } = {}) {
-            try {
-                const tasks = JSON.parse(jsonString);
-                const showNow = persist ? (conversationId === undefined || conversationId === currentConversationId) : true;
-                let storedId = messageId;
-                if (persist) {
-                    const saved = addMessage(conversationId === undefined ? currentConversationId : conversationId,
-                        { role: 'plan', plan: jsonString, request });
-                    if (conversationId === undefined || conversationId === currentConversationId) currentConversationId = saved.conversationId;
-                    storedId = saved.messageId;
-                }
-                if (!showNow) return;
+    try {
+        const parsedItems = JSON.parse(jsonString);
+        const items = (Array.isArray(parsedItems) ? parsedItems : []).map(normalizeItem).filter(Boolean);
+        if (!items.length) return;
+        const showNow = persist ? (conversationId === undefined || conversationId === currentConversationId) : true;
+        let storedId = messageId;
+        if (persist) {
+            const saved = addMessage(conversationId === undefined ? currentConversationId : conversationId,
+                { role: 'plan', plan: JSON.stringify(items), request });
+            if (conversationId === undefined || conversationId === currentConversationId) currentConversationId = saved.conversationId;
+            storedId = saved.messageId;
+        }
+        if (!showNow) return;
 
-                const messagesContainer = document.getElementById('messages');
-                const plannerDiv = document.createElement('div');
-                const lang = localStorage.getItem('appLang') || 'zh';
-                const dict = translations[lang];
+        const messagesContainer = document.getElementById('messages');
+        const plannerDiv = document.createElement('div');
+        const lang = localStorage.getItem('appLang') || 'zh';
+        const dict = translations[lang];
 
-                plannerDiv.className = 'ai-planner-box';
-                plannerDiv.dataset.messageId = storedId;
-                plannerDiv.dataset.request = request;
-                plannerDiv.innerHTML = `
+        plannerDiv.className = 'ai-planner-box';
+        plannerDiv.dataset.messageId = storedId;
+        plannerDiv.dataset.request = request;
+        plannerDiv.innerHTML = `
             <div class="planner-header">${dict.plannerHeader}</div>
-            ${tasks.map((t, i) => `
+            ${items.map((t, i) => {
+                const { label, detail, usable } = describePlanItem(t, dict, lang);
+                return `
                 <div class="planner-item">
-                    <input type="checkbox" id="ai-step-${storedId}-${i}" checked
-                           data-action="${escapeHtml(t.action || 'add')}" data-task-id="${escapeHtml(t.taskId || '')}"
-                           data-title="${escapeHtml(t.step || '')}" data-hours="${escapeHtml(t.estimatedHours || 1)}" data-date="${escapeHtml(t.suggestedDate || '')}"
-                           data-description="${escapeHtml(t.description || '')}">
+                    <input type="checkbox" id="ai-step-${storedId}-${i}" ${usable ? 'checked' : 'disabled'}
+                           data-item="${escapeHtml(JSON.stringify(t))}">
                     <label for="ai-step-${storedId}-${i}">
-                        ${escapeHtml((t.action || 'add') === 'delete' ? dict.deleteLabel : dict.addLabel)}: ${escapeHtml(t.step || dict.unnamedPlan)} ${(t.action || 'add') === 'delete' ? '' : `(${escapeHtml(t.estimatedHours || 1)}h)`}
-                        <br><span>${escapeHtml((t.action || 'add') === 'delete' ? (t.reason || dict.aiSuggestCancel) : `${dict.suggestedExecution}${t.suggestedDate ? t.suggestedDate.replace('T', ' ') : dict.scheduleLater}`)}</span>
+                        ${escapeHtml(label)}
+                        <br><span>${escapeHtml(detail)}</span>
                     </label>
-                </div>
-            `).join('')}
+                </div>`;
+            }).join('')}
             <button class="sync-btn" data-click="syncSelectedTasks" data-args='["@this"]'>${dict.applyPlanBtn}</button>
         `;
-                if (applied) {
-                    const btn = plannerDiv.querySelector('.sync-btn');
-                    btn.innerText = dict.syncDone;
-                    btn.disabled = true;
-                    plannerDiv.querySelectorAll('input').forEach(input => { input.disabled = true; });
-                }
-                messagesContainer.appendChild(plannerDiv);
-                messagesContainer.scrollTop = messagesContainer.scrollHeight;
-            } catch (e) {
-                console.error("解析 AI 计划失败", e);
-            }
+        if (applied) {
+            const btn = plannerDiv.querySelector('.sync-btn');
+            btn.innerText = dict.syncDone;
+            btn.disabled = true;
+            plannerDiv.querySelectorAll('input').forEach(input => { input.disabled = true; });
         }
+        messagesContainer.appendChild(plannerDiv);
+        messagesContainer.scrollTop = messagesContainer.scrollHeight;
+    } catch (e) {
+        console.error("解析 AI 计划失败", e);
+    }
+}
 
-// The prose before the plan JSON. Some models wrap the JSON in a ```json fence, and the
-// opening fence would otherwise show up as a stray line at the end of the chat bubble.
-export function textBeforePlan(data, jsonMatch) {
-            return data.split(jsonMatch)[0].replace(/`{3}[a-zA-Z]*\s*$/, '');
-        }
+const loadedTask = (id) => (state.lastLoadedTasks || []).find(t => Number(t.id) === Number(id));
 
-export function extractJsonArray(text) {
-            if (!text) return null;
-            for (let start = text.indexOf('['); start >= 0; start = text.indexOf('[', start + 1)) {
-                for (let end = text.lastIndexOf(']'); end > start; end = text.lastIndexOf(']', end - 1)) {
-                    const candidate = text.slice(start, end + 1);
-                    try {
-                        const parsed = JSON.parse(candidate);
-                        if (Array.isArray(parsed)) return candidate;
-                    } catch (e) { }
-                }
-            }
-            return null;
-        }
+/* The two lines a plan item shows: what it does, and when / why. `usable` is false when it points at a task that
+   is no longer in the list. */
+function describePlanItem(t, dict, lang) {
+    if (t.action === 'delete') {
+        const existing = loadedTask(t.taskId);
+        const shown = existing ? taskDisplayText(existing, lang).title : t.step;
+        return { label: `${dict.deleteLabel}: ${shown || dict.unnamedPlan}`, detail: t.reason || dict.aiSuggestCancel, usable: true };
+    }
+    if (t.action === 'update') {
+        const existing = loadedTask(t.taskId);
+        if (!existing) return { label: `${dict.updateLabel}: ${t.step || '#' + t.taskId}`, detail: dict.planTaskMissing, usable: false };
+        const { body } = buildUpdate(existing, t);
+        const renamed = t.step && body.title !== existing.title ? ` → ${t.step}` : '';
+        return {
+            label: `${dict.updateLabel}: ${taskDisplayText(existing, lang).title}${renamed}`,
+            detail: timeLine(body.dueDate, body.endDate, lang),
+            usable: true
+        };
+    }
+    const { dueDate, endDate } = newTaskFromItem(t);
+    const isEvent = t.kind === 'event' && !!endDate;
+    const detail = isEvent
+        ? spanText(dueDate, endDate)
+        : `${dict.suggestedExecution}${dueDate ? dueDate.replace('T', ' ').slice(0, 16) : dict.scheduleLater}`;
+    return {
+        label: `${isEvent ? dict.addEventLabel : dict.addLabel}: ${t.step || dict.unnamedPlan} ${isEvent ? '' : `(${t.estimatedHours || 1}h)`}`.trim(),
+        detail,
+        usable: true
+    };
+}
 
 /* The description saved on a task the AI created: what the step is (written by the AI from the
    user's request), where it came from, and the time estimate. */
@@ -239,62 +259,89 @@ export function buildTaskDescription({ description = '', request = '', hours = 1
                 const short = quoted.length > 120 ? quoted.slice(0, 120) + '…' : quoted;
                 parts.push(lang === 'zh' ? `来自对话："${short}"` : `From chat: "${short}"`);
             }
-            parts.push(lang === 'zh' ? `预计耗时 ${hours} 小时` : `Estimated: ${hours} h`);
+            if (hours) parts.push(lang === 'zh' ? `预计耗时 ${hours} 小时` : `Estimated: ${hours} h`);
             return parts.join('\n');
         }
 
 export async function syncSelectedTasks(btn) {
-            if (!requireUser()) return;
-            const container = btn.parentElement;
-            const checkedItems = container.querySelectorAll('input:checked');
-            const lang = localStorage.getItem('appLang') || 'zh';
-            if (checkedItems.length === 0) { alert(translations[lang].alertNoTaskChecked); return; }
-            btn.innerText = translations[lang].syncing;
-            btn.disabled = true;
+    if (!requireUser()) return;
+    const container = btn.parentElement;
+    const checkedItems = container.querySelectorAll('input:checked');
+    const lang = localStorage.getItem('appLang') || 'zh';
+    if (checkedItems.length === 0) { alert(translations[lang].alertNoTaskChecked); return; }
+    btn.innerText = translations[lang].syncing;
+    btn.disabled = true;
 
-            const newTasks = [];
-            for (const item of checkedItems) {
-                if (item.dataset.action === 'delete') {
-                    if (item.dataset.taskId) {
-                        await fetch(`${API_BASE}/api/tasks/${item.dataset.taskId}?authToken=${encodeURIComponent(getAuthToken())}`, { method: 'DELETE' });
-                    }
-                    continue;
-                }
-                newTasks.push({
-                    title: "[AI] " + item.dataset.title,
-                    description: buildTaskDescription({
-                        description: item.dataset.description,
-                        request: container.dataset.request || '',
-                        hours: item.dataset.hours,
-                        lang
-                    }),
-                    dueDate: item.dataset.date || new Date().toISOString()
-                });
-            }
-
-            // One AI request writes the other-language version of every new task, so the calendar reads right in either language.
-            const bothLanguages = await translateTasks(newTasks);
-            const currentTz = document.getElementById('timezoneSelect').value;
-
-            for (const [index, taskData] of newTasks.entries()) {
-                taskData.i18n = bothLanguages[index];
-
-                await fetch(`${API_BASE}/api/tasks?userId=${getUserId()}&authToken=${encodeURIComponent(getAuthToken())}&timezone=${encodeURIComponent(currentTz)}`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(taskData)
-                });
-            }
-
-            btn.innerText = translations[lang].syncDone;
-            btn.style.background = "#64748b";
-            if (container.dataset.messageId && currentConversationId) {
-                updateMessage(currentConversationId, container.dataset.messageId, { applied: true });
-            }
-            state.calendar.refetchEvents();
-            loadTasks(document.getElementById('timezoneSelect').value);
-            loadLifestyleAnalysis(getActiveAnalysisPeriod(), document.getElementById('timezoneSelect').value);
+    const token = encodeURIComponent(getAuthToken());
+    const currentTz = document.getElementById('timezoneSelect').value;
+    let failed = 0;
+    const newTasks = [];
+    const changes = [];
+    for (const input of checkedItems) {
+        let item;
+        try { item = JSON.parse(input.dataset.item); } catch (e) { continue; }
+        if (item.action === 'delete') {
+            const res = await fetch(`${API_BASE}/api/tasks/${item.taskId}?authToken=${token}`, { method: 'DELETE' });
+            if (!res.ok) failed++;
+        } else if (item.action === 'update') {
+            const existing = loadedTask(item.taskId);
+            if (!existing) { failed++; continue; }
+            changes.push({ existing, ...buildUpdate(existing, item), id: item.taskId });
+        } else {
+            const { dueDate, endDate } = newTaskFromItem(item);
+            const isEvent = !!endDate;
+            newTasks.push({
+                title: "[AI] " + (item.step || ''),
+                description: buildTaskDescription({
+                    description: item.description || '',
+                    request: container.dataset.request || '',
+                    hours: isEvent ? 0 : (item.estimatedHours || 1),
+                    lang
+                }),
+                dueDate: dueDate || new Date().toISOString(),
+                endDate: endDate || undefined
+            });
         }
+    }
+
+    // One AI request writes the other-language version of every new or renamed task, so the calendar reads right in either language.
+    const changedText = changes.filter(c => c.textChanged);
+    const bothLanguages = await translateTasks([
+        ...newTasks,
+        ...changedText.map(c => ({ title: c.body.title, description: c.body.description || '' }))
+    ]);
+
+    for (const [index, taskData] of newTasks.entries()) {
+        taskData.i18n = bothLanguages[index];
+        const res = await fetch(`${API_BASE}/api/tasks?userId=${getUserId()}&authToken=${token}&timezone=${encodeURIComponent(currentTz)}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(taskData)
+        });
+        if (!res.ok) failed++;
+    }
+    for (const change of changes) {
+        const body = { ...change.body };
+        // Unchanged text keeps the translations the server already has; new text takes the fresh ones.
+        if (change.textChanged) body.i18n = bothLanguages[newTasks.length + changedText.indexOf(change)];
+        const res = await fetch(`${API_BASE}/api/tasks/${change.id}?authToken=${token}&timezone=${encodeURIComponent(currentTz)}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body)
+        });
+        if (!res.ok) failed++;
+    }
+
+    btn.innerText = translations[lang].syncDone;
+    btn.style.background = "#64748b";
+    if (failed) showToast(translations[lang].planPartlyFailed.replace('{n}', failed), 'error');
+    if (container.dataset.messageId && currentConversationId) {
+        updateMessage(currentConversationId, container.dataset.messageId, { applied: true });
+    }
+    state.calendar.refetchEvents();
+    loadTasks(currentTz);
+    loadLifestyleAnalysis(getActiveAnalysisPeriod(), currentTz);
+}
 
 export async function checkAiStatus() {
             try {

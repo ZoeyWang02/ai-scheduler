@@ -17,7 +17,8 @@ export interface ImportItem {
   source: string;
   title: string;
   description: string | null;
-  /** UTC storage text. Tasks use dueDate; course sessions use start/end. */
+  /** UTC storage text. Tasks use dueDate; course sessions use start/end. A task that also has `end` is an event:
+   *  dueDate is its start. */
   dueDate: string | null;
   start: string | null;
   end: string | null;
@@ -224,9 +225,10 @@ export function documentPrompt(timeZone: string, todayLocal: { y: number; mo: nu
     `Today is ${formatStored({ ...todayLocal, h: 0, mi: 0, s: 0 }).slice(0, 10)} and the user's time zone is ${timeZone}.`,
     `Calendar for the next 14 days (use it to place weekdays): ${calendarContext(todayLocal)}.`,
     "Return ONLY a JSON array, no markdown and no commentary. Each element:",
-    '{"kind":"task"|"course","title":"short title","description":"one sentence","dueDate":"YYYY-MM-DDTHH:MM","start":"YYYY-MM-DDTHH:MM","end":"YYYY-MM-DDTHH:MM","location":"","confidence":0.0,"evidence":"short quote from the document"}',
+    '{"kind":"task"|"event"|"course","title":"short title","description":"one sentence","dueDate":"YYYY-MM-DDTHH:MM","start":"YYYY-MM-DDTHH:MM","end":"YYYY-MM-DDTHH:MM","location":"","confidence":0.0,"evidence":"short quote from the document"}',
     "Rules:",
-    "- kind=task: an assignment, quiz, exam, test, presentation, project, reading or other deadline. Give dueDate (for an exam or quiz, its start time; put the duration or room in the description). If only a date is known use T23:59.",
+    "- kind=task: an assignment, project, reading or other deadline to hand something in. Give dueDate. If only a date is known use T23:59.",
+    "- kind=event: something that happens once during a stretch of time: an exam, quiz, test, presentation slot, review session, interview or one-off meeting. Give start and end (if the document gives a start and a length, work out the end; put the room in location). An exam whose time of day or length is not given is a task with its date as dueDate instead.",
     "- kind=course: a regularly scheduled meeting with a start and end (lecture, lab, discussion section, office hours). Give start and end.",
     "- Include EVERY dated deadline and exam in the document, however far ahead (months are fine). Only the repeating weekly meetings are limited: list just the ones in the next 14 days.",
     "- Times are 24-hour, in the user's time zone. A date without a year means the next such date from today.",
@@ -285,6 +287,13 @@ export function itemsFromModelReply(reply: string, fileName: string, timeZone: s
       if (storedToMs(end) <= storedToMs(start)) continue;
       items.push(item(`doc-${items.length + 1}`, "course", source, title, { ...common, start, end }));
     } else {
+      // An event has a start and an end after it; without a usable end it is only a deadline, kept as a task.
+      const eventStart = raw.kind === "event" ? modelDateToUtc(raw.start, timeZone, "09:00") ?? modelDateToUtc(raw.dueDate, timeZone, "09:00") : null;
+      const eventEnd = eventStart ? modelDateToUtc(raw.end, timeZone, "10:00") : null;
+      if (eventStart && eventEnd && storedToMs(eventEnd) > storedToMs(eventStart)) {
+        items.push(item(`doc-${items.length + 1}`, "task", source, title, { ...common, dueDate: eventStart, end: eventEnd }));
+        continue;
+      }
       // Models sometimes put an exam's time in `start` (it has a start and an end) instead of `dueDate`.
       const dueDate = modelDateToUtc(raw.dueDate, timeZone, "23:59") ?? modelDateToUtc(raw.start, timeZone, "23:59");
       items.push(item(`doc-${items.length + 1}`, "task", source, title, { ...common, dueDate }));
