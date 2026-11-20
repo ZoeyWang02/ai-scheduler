@@ -6,7 +6,7 @@ import { initBuddyWidget, isBuddyWidgetPinned, resetBuddyWidgetPosition, unpinBu
 import { appendMessage, checkAiStatus, initChatAttach, sendMessage, showChatList, syncSelectedTasks } from './chat.js';
 import { applyLanguage, toggleLanguage, translations } from './i18n.js';
 import { initReminders, toggleReminders } from './reminders.js';
-import { closeImportModal, closeModal, confirmUnifiedImport, courseApiUrl, courseToCalendarEvent, initCalendar, loadTasks, loadTimezones, onTimezoneChange, openEditModal, openImportModal, previewUnifiedImport, saveManualTask, setImportSelection, taskApiUrl, taskToCalendarEvent, updateTaskColor } from './scheduler.js';
+import { closeImportModal, closeModal, confirmUnifiedImport, courseApiUrl, courseToCalendarEvent, initCalendar, loadTasks, loadTimezones, onTimezoneChange, onEditKindChange, openEditModal, openImportModal, previewUnifiedImport, saveManualTask, setImportSelection, taskApiUrl, taskToCalendarEvent, updateTaskColor } from './scheduler.js';
 import { applyServerPreferences, closeSettingsModal, openSettingsModal, saveSettings } from './settings.js';
 import { aiProviderChanged, clearAiKey, testAiKey } from './aiSettings.js';
 import { previewTheme, setTheme, toggleNightMode } from './theme.js';
@@ -195,6 +195,7 @@ const actions = {
     closeSettingsModal,
     closeTaskDrawer,
     confirmUnifiedImport,
+    onEditKindChange,
     onTimezoneChange,
     openAuthModal,
     openBuddyStatusModal,

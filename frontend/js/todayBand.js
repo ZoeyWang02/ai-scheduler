@@ -3,7 +3,8 @@ import { translations } from './i18n.js';
 import { escapeHtml } from './utils.js';
 import { taskDisplayText } from './analytics.js';
 import { getBuddyGreeting, getChatAvatarSrc, BUDDY_MOOD_ICON, STUDY_BUDDIES, buddyDisplayName } from './buddy.js';
-import { showModal, toggleTaskComplete } from './scheduler.js';
+import { showModal, taskTimeLine, toggleTaskComplete } from './scheduler.js';
+import { clockText } from './timeSpan.js';
 
 import { pixelIcon } from './pixelIcons.js';
 /* "Today" info band above the calendar — surfaces the daily-execution signal
@@ -131,7 +132,7 @@ function renderAgendaZone(dict, metrics) {
             const row = document.createElement('div');
             row.className = 'tb-task';
             row.addEventListener('click', () =>
-                showModal(transTitle, t.localDueDate, transDesc, t.id, t.color || '', null, t.dueDate || t.localDueDate));
+                showModal(transTitle, taskTimeLine(t, lang), transDesc, t.id, t.color || '', null, t.dueDate || t.localDueDate, t.endDate));
 
             const cb = document.createElement('input');
             cb.type = 'checkbox';
@@ -142,7 +143,7 @@ function renderAgendaZone(dict, metrics) {
             const time = document.createElement('span');
             time.className = 'tb-task-time';
             time.textContent = (t.localDueDate && t.localDueDate.length >= 16)
-                ? t.localDueDate.substring(11, 16) : '';
+                ? clockText(t.dueDate || t.localDueDate, t.endDate) : '';
 
             const title = document.createElement('span');
             title.className = 'tb-task-title';

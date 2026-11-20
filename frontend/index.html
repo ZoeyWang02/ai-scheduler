@@ -245,9 +245,14 @@
             <div style="display: flex; flex-direction: column; margin-top: 16px;">
                 <input type="text" id="editTaskName" placeholder="任务名称..." class="custom-input" data-i18n-placeholder="editTaskNamePlaceholder">
 
-                <label style="font-size: 11px; color: var(--text-muted); font-weight: 600; margin-bottom: 4px;" data-i18n="editTimeLabel">起止时间 (跟随左侧所选时区)</label>
+                <select id="editTaskKind" class="custom-input" data-change="onEditKindChange" aria-label="Type">
+                    <option value="task" data-i18n="kindTask">任务（截止时间）</option>
+                    <option value="event" data-i18n="kindEvent">事件（起止时间）</option>
+                </select>
+
+                <label id="editTimeLabel" style="font-size: 11px; color: var(--text-muted); font-weight: 600; margin-bottom: 4px;">截止时间 (跟随左侧所选时区)</label>
                 <input type="datetime-local" id="editTaskDate" class="custom-input" style="margin-bottom: 8px;">
-                <input type="datetime-local" id="editTaskEndDate" class="custom-input">
+                <input type="datetime-local" id="editTaskEndDate" class="custom-input" style="display: none;">
 
                 <textarea id="editTaskDesc" placeholder="详情描述..." class="custom-input" data-i18n-placeholder="editTaskDescPlaceholder"
                     style="height: 80px; resize: none;"></textarea>

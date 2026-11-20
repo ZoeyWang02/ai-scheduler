@@ -71,6 +71,18 @@ Acceptance: a scanned syllabus PDF and a PNG of a timetable each produce a previ
 - [ ] Task titles in both languages (`tasks.i18n`, `POST /api/ai/translate-tasks`) exist only in the Worker. The Java
       backend has no `i18n` column and ignores the field, so with Java tasks are shown as written (as before).
 
+- [ ] Events (a task with an end time, `tasks.end_date`) exist only in the Worker. The Java backend has no `end_date` column and
+      ignores `endDate`, so with Java an event is saved as a task (its start becomes the deadline).
+
+### Tasks and events
+A task is a deadline (`dueDate`, no end); an event has a start and an end (`dueDate` + `endDate`). The edit form has a
+type picker, the calendar draws a task as a short dashed block and an event with its real length, and the details box
+and tooltip say "Due: ..." or "Time: start-end (length)". Not done yet:
+- [ ] Events from an AI plan or a document import still come in as tasks (the AI returns one date). Let the model return an
+      end time for things like meetings and exams, and turn those into events.
+- [ ] The study-rhythm analysis counts an event's start like a deadline.
+- [ ] Class sessions (`course_events`) cannot be edited or created by hand; they could become events in `tasks`.
+
 ### Task titles in both languages: what is not covered yet
 Tasks made by adding one by hand, editing one, or applying an AI plan are translated when they are saved (one AI request
 per save). Everything else is still shown as written:

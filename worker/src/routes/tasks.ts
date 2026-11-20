@@ -14,9 +14,11 @@ const DEFAULT_TZ = "America/Chicago";
 /** TaskResponseDTO. */
 function toDto(task: TaskRow, timezone: string) {
   const base = { id: task.id, title: task.title, description: task.description, i18n: parseI18n(task.i18n), color: task.color, completed: task.completed === 1 };
-  if (!task.due_date) return { ...base, localDueDate: "No Deadline", dueDate: null };
+  if (!task.due_date) return { ...base, localDueDate: "No Deadline", dueDate: null, endDate: null };
   const local = utcToLocal(task.due_date, timezone);
-  return { ...base, localDueDate: toDisplayString(local), dueDate: toJavaString(local) };
+  // `endDate` is set for an event (dueDate is then its start) and null for a task, which is only a deadline.
+  const endDate = task.end_date ? toJavaString(utcToLocal(task.end_date, timezone)) : null;
+  return { ...base, localDueDate: toDisplayString(local), dueDate: toJavaString(local), endDate };
 }
 
 /** What POST returns: the saved entity (the frontend only checks that the call succeeded). */
@@ -26,6 +28,7 @@ const entity = (task: TaskRow) => ({
   description: task.description,
   i18n: parseI18n(task.i18n),
   dueDate: task.due_date ? toJavaString(task.due_date) : null,
+  endDate: task.end_date ? toJavaString(task.end_date) : null,
   completed: task.completed === 1,
   completedAt: task.completed_at ? toJavaString(task.completed_at) : null,
   aiMetadata: null,
@@ -39,6 +42,15 @@ const readBody = async (c: { req: { json: () => Promise<unknown> } }): Promise<R
 };
 
 const str = (value: unknown): string | null => (typeof value === "string" ? value : null);
+
+/** The end of an event as UTC text, or null for a task. An end needs a start, and has to come after it. */
+function endToStore(end: string | null, startUtc: string | null, timezone: string): string | null {
+  if (!end) return null;
+  if (!startUtc) throw new Error("An event needs a start time.");
+  const endUtc = localToUtc(end, timezone);
+  if (endUtc <= startUtc) throw new Error("The end must be after the start.");
+  return endUtc;
+}
 
 /** Task owned by the token's user; throws AuthError for someone else's task (a 403), Error if missing. */
 async function requireOwnedTask(db: D1Database, id: number, token: string | undefined): Promise<TaskRow> {
@@ -71,8 +83,9 @@ taskRoutes.post("/", async (c) => {
     const body = await readBody(c);
     const due = str(body.dueDate);
     const dueDate = due ? localToUtc(due, timezone) : null;
-    const result = await c.env.DB.prepare("INSERT INTO tasks (title, description, due_date, color, i18n, user_id) VALUES (?, ?, ?, ?, ?, ?)")
-      .bind(str(body.title), str(body.description), dueDate, str(body.color), i18nToStore(body.i18n), user.id).run();
+    const endDate = endToStore(str(body.endDate), dueDate, timezone);
+    const result = await c.env.DB.prepare("INSERT INTO tasks (title, description, due_date, end_date, color, i18n, user_id) VALUES (?, ?, ?, ?, ?, ?, ?)")
+      .bind(str(body.title), str(body.description), dueDate, endDate, str(body.color), i18nToStore(body.i18n), user.id).run();
     return c.json(entity((await taskById(c.env.DB, result.meta.last_row_id))!));
   } catch (e) {
     if (e instanceof AuthError) return c.text(e.message, 401);
@@ -135,13 +148,15 @@ taskRoutes.put("/:id", async (c) => {
     const timezone = c.req.query("timezone") || DEFAULT_TZ;
     const due = str(body.dueDate);
     const dueDate = due ? localToUtc(due, timezone) : task.due_date;
+    // Without "endDate" in the body the event keeps its length; with it, an empty value turns the event back into a task.
+    const endDate = "endDate" in body ? endToStore(str(body.endDate), dueDate, timezone) : task.end_date ?? null;
     const title = str(body.title);
     const description = str(body.description);
     // The translations belong to the text they were made from. A client that changes the text sends fresh ones
     // (or none, when translating failed); if it sends nothing and the text did change, the old ones are stale.
     const i18n = "i18n" in body ? i18nToStore(body.i18n) : title === task.title && description === task.description ? task.i18n ?? null : null;
-    await c.env.DB.prepare("UPDATE tasks SET title = ?, description = ?, due_date = ?, i18n = ? WHERE id = ?")
-      .bind(title, description, dueDate, i18n, task.id).run();
+    await c.env.DB.prepare("UPDATE tasks SET title = ?, description = ?, due_date = ?, end_date = ?, i18n = ? WHERE id = ?")
+      .bind(title, description, dueDate, endDate, i18n, task.id).run();
     return c.text("Task updated.");
   } catch (e) {
     if (e instanceof AuthError) return c.text(e.message, 403);

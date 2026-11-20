@@ -889,6 +889,15 @@
             cursor: var(--cursor-clickable);
         }
 
+        /* A task is a deadline, not a stretch of time: draw it with a dashed edge. Events and classes stay solid. */
+        .fc-event.fc-kind-task {
+            border: 1px dashed rgba(255, 255, 255, 0.85) !important;
+        }
+
+        [data-theme^="stardew"] .fc-event.fc-kind-task {
+            border: 1px dashed var(--soil-900) !important;
+        }
+
 
 
         .panel-title-row {

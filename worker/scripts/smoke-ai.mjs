@@ -192,6 +192,32 @@ try {
   r = await call("POST", "/api/tasks", { query: q, json: { title: "Too long", i18n: { en: { title: "y".repeat(301), description: "" } } } });
   check("translations over the length limit are ignored too", r.status === 200 && r.body.i18n === null);
 
+  // ---- events (a start and an end) and tasks (a deadline) ----------------------------------------------------------
+  console.log("\nevents and tasks");
+  r = await call("POST", "/api/tasks", { query: q, json: { title: "Office hours", dueDate: "2027-11-22T10:00:00", endDate: "2027-11-22T11:30:00" } });
+  check("an event can be created with an end time (200)", r.status === 200 && r.body.endDate === "2027-11-22T17:30", JSON.stringify(r.body)); // the saved entity is in UTC, like dueDate
+  const eventId = r.body.id;
+  r = await call("GET", "/api/tasks", { query: q });
+  const eventRow = () => r.body.find((t) => t.id === eventId);
+  check("the list gives the event's start and end in the user's time zone", eventRow().dueDate === "2027-11-22T10:00" && eventRow().endDate === "2027-11-22T11:30", JSON.stringify(eventRow()));
+  check("a task has no end", r.body.find((t) => t.id === bilingualId).endDate === null);
+  r = await call("POST", "/api/tasks", { query: q, json: { title: "Backwards", dueDate: "2027-11-22T10:00:00", endDate: "2027-11-22T09:00:00" } });
+  check("an end before the start is refused (400)", r.status === 400, JSON.stringify(r));
+  r = await call("POST", "/api/tasks", { query: q, json: { title: "No start", endDate: "2027-11-22T09:00:00" } });
+  check("an end without a start is refused (400)", r.status === 400, JSON.stringify(r));
+  const eventEdit = (extra) => ({ query: { ...q, authToken: user.token }, json: { title: "Office hours", description: "", dueDate: "2027-11-22T10:00:00", ...extra } });
+  r = await call("PUT", `/api/tasks/${eventId}`, eventEdit({}));
+  r = await call("GET", "/api/tasks", { query: q });
+  check("an edit that does not mention the end keeps it", eventRow().endDate === "2027-11-22T11:30", JSON.stringify(eventRow()));
+  await call("PUT", `/api/tasks/${eventId}`, eventEdit({ endDate: "2027-11-22T12:00:00" }));
+  r = await call("GET", "/api/tasks", { query: q });
+  check("an edit can move the end", eventRow().endDate === "2027-11-22T12:00");
+  r = await call("PUT", `/api/tasks/${eventId}`, eventEdit({ endDate: "2027-11-22T09:00:00" }));
+  check("an edit with the end before the start is refused (400)", r.status === 400, JSON.stringify(r));
+  await call("PUT", `/api/tasks/${eventId}`, eventEdit({ endDate: null }));
+  r = await call("GET", "/api/tasks", { query: q });
+  check("sending endDate: null turns the event back into a task", eventRow().endDate === null);
+
   // ---- bring your own key: the Worker only prepares prompts, the browser talks to the provider ---------------
   console.log("\nbring your own key (prompts only)");
   seen.length = 0;

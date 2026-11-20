@@ -28,6 +28,7 @@ export interface TaskRow {
   user_id: number;
   color: string | null;
   import_key: string | null;
+  end_date?: string | null; // UTC end of an event (due_date is its start); NULL for a task, which is only a deadline
   i18n?: string | null; // JSON text: the title and description in zh and en (see frontend/js/taskI18n.js)
 }
 

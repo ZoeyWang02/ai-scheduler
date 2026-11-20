@@ -207,7 +207,7 @@ function fireOverdue(task, overdueSet) {
     showBuddyBubble(fill(dict().overdueCheckin, { title: shown.title }), {
         actions: [{
             label: dict().overdueRescheduleBtn,
-            onClick: () => openEditModal(task.id, shown.title, shown.description || '', task.dueDate || ''),
+            onClick: () => openEditModal(task.id, shown.title, shown.description || '', task.dueDate || '', task.endDate || ''),
         }],
     });
     overdueSet.add(String(task.id));

@@ -10,6 +10,7 @@ import { refreshUserScopedViews } from './app.js';
 import { toggleTranslate, triggerAutoAiPlanner } from './chat.js';
 import { extractDocumentText, fileExtension, isDocumentFile } from './docExtract.js';
 import { chatComplete, describeAiError, hasOwnKey } from './llmClient.js';
+import { spanText, timeLine } from './timeSpan.js';
 
 import { pixelIcon } from './pixelIcons.js';
 export function taskApiUrl(timezone) {
@@ -62,15 +63,19 @@ export function taskToCalendarEvent(task) {
             let evColor = task.color || '#3b82f6';
             if ((task.title.includes('[AI]') || task.title.includes('[智能规划]')) && !task.color) evColor = '#8b5cf6';
 
+            // An event has a real start and end. A task is a deadline: it gets no end, and the calendar
+            // draws it as a short block (defaultTimedEventDuration) instead of pretending it lasts hours.
+            const isEvent = !!(task.endDate && spanText(task.dueDate, task.endDate));
             let startIso = task.localDueDate;
-            let endIso = task.localDueDate;
+            let endIso;
             try {
                 if (task.localDueDate) {
                     let parsed = new Date(task.localDueDate.replace(' ', 'T'));
-                    if (!isNaN(parsed.valueOf())) {
-                        startIso = parsed.toISOString();
-                        endIso = new Date(parsed.getTime() + 2 * 60 * 60 * 1000).toISOString();
-                    }
+                    if (!isNaN(parsed.valueOf())) startIso = parsed.toISOString();
+                }
+                if (isEvent) {
+                    const parsedEnd = new Date(task.endDate.replace(' ', 'T'));
+                    if (!isNaN(parsedEnd.valueOf())) endIso = parsedEnd.toISOString();
                 }
             } catch (e) { }
 
@@ -82,11 +87,14 @@ export function taskToCalendarEvent(task) {
                 extendedProps: {
                     taskId: task.id,
                     description: transDesc,
-                    formattedDate: task.localDueDate,
-                    rawStart: startIso, // 鎼哄甫绾噣鏃堕棿鐢ㄤ簬缂栬緫鍥炴樉
-                    color: task.color
+                    color: task.color,
+                    kind: isEvent ? 'event' : 'task',
+                    // The times as the server wrote them (local, no zone), for the details box and the edit form.
+                    localStart: task.dueDate,
+                    localEnd: isEvent ? task.endDate : null
                 },
-                color: evColor
+                color: evColor,
+                classNames: isEvent ? ['fc-kind-event'] : ['fc-kind-task']
             };
         }
 
@@ -112,7 +120,9 @@ export function courseToCalendarEvent(event) {
                 extendedProps: {
                     courseId: event.id, // 涓撻棬鐨勮绋?ID 鏍囪
                     description: event.location || '',
-                    formattedDate: `${(event.start || '').replace('T', ' ')} - ${(event.end || '').includes('T') ? event.end.split('T')[1] : (event.end || '')}`
+                    kind: 'course',
+                    localStart: event.start,
+                    localEnd: event.end
                 },
                 color: '#16b99a'
             };
@@ -125,6 +135,8 @@ export function initCalendar(timezone) {
                 // The zh-cn locale pack defaults to Monday-first; keep the existing Sunday-first grid.
                 firstDay: 0,
                 height: '100%',
+                // A task is a deadline with no end; draw it as a short block. Events and classes carry their real end.
+                defaultTimedEventDuration: '00:30',
                 headerToolbar: {
                     left: 'prev,next today',
                     center: 'title',
@@ -136,19 +148,23 @@ export function initCalendar(timezone) {
                 ],
                 // ... 淇濇寔 eventDidMount 鐨?tippy 鎻愮ず璇嶄笉鍙?...
                 eventDidMount: function (info) {
-                    const desc = info.event.extendedProps.description || translations[localStorage.getItem('appLang') || 'zh'].noDetails;
+                    const lang = localStorage.getItem('appLang') || 'zh';
+                    const desc = info.event.extendedProps.description || translations[lang].noDetails;
+                    const when = timeLine(info.event.extendedProps.localStart, info.event.extendedProps.localEnd, lang);
                     tippy(info.el, {
                         content: `<div style="font-family: Inter; padding: 4px;">
                                 <strong style="font-size: 13px;">${escapeHtml(info.event.title)}</strong><br>
+                                <div style="font-size:12px; margin-top: 2px;">${escapeHtml(when)}</div>
                                 <div style="font-size:12px; margin-top: 4px; color:#94a3b8; max-height:60px; overflow:hidden;">${linkify(desc)}</div>
                               </div>`,
                         allowHTML: true, interactive: true, theme: 'dark', appendTo: () => document.body, placement: 'top',
                     });
                 },
                 eventClick: function (info) {
+                    const ext = info.event.extendedProps;
                     showModal(
                         info.event.title,
-                        info.event.extendedProps.formattedDate,
+                        timeLine(ext.localStart, ext.localEnd, localStorage.getItem('appLang') || 'zh'),
                         info.event.extendedProps.description,
                         info.event.extendedProps.taskId,
                         // FullCalendar's EventApi has no `.color` getter — the
@@ -157,7 +173,9 @@ export function initCalendar(timezone) {
                         // always be undefined and the picker would fall back
                         // to the default blue on every reopen.
                         info.event.backgroundColor,
-                        info.event.extendedProps.courseId
+                        info.event.extendedProps.courseId,
+                        ext.localStart,
+                        ext.localEnd
                     );
                 }
             });
@@ -165,12 +183,13 @@ export function initCalendar(timezone) {
             setTimeout(() => { state.calendar.updateSize(); }, 100);
         }
 
-export function showModal(title, date, desc, taskId, color, courseId = null, rawDate = null) {
+/** `date` is the finished time line (see timeLine in timeSpan.js); `rawDate` / `rawEnd` are the local start and end the edit form opens with. */
+export function showModal(title, date, desc, taskId, color, courseId = null, rawDate = null, rawEnd = null) {
             const lang = localStorage.getItem('appLang') || 'zh';
             state.currentOpenedTaskId = taskId;
 
             document.getElementById('modalTitle').innerText = title;
-            document.getElementById('modalDate').innerText = (lang === 'zh' ? "时间: " : "Time: ") + date;
+            document.getElementById('modalDate').innerText = date;
             document.getElementById('modalDescription').innerHTML = linkify(desc) || (lang === 'zh' ? "暂无详细描述。" : "No description.");
             document.getElementById('taskColorPicker').value = color || '#3b82f6';
 
@@ -181,7 +200,7 @@ export function showModal(title, date, desc, taskId, color, courseId = null, raw
                 deleteBtn.style.display = 'inline-block';
                 editBtn.style.display = 'inline-block';
                 deleteBtn.onclick = function () { deleteTask(taskId); };
-                editBtn.onclick = function () { closeModal(); openEditModal(taskId, title, desc, rawDate); };
+                editBtn.onclick = function () { closeModal(); openEditModal(taskId, title, desc, rawDate, rawEnd); };
             } else if (courseId) {
                 deleteBtn.style.display = 'inline-block';
                 editBtn.style.display = 'none'; // 课程暂不支持前端修改
@@ -205,9 +224,31 @@ export function openEditModal(taskId = null, title = '', desc = '', rawDate = ''
             // 鍥炴樉鏃讹紝涓㈠純甯︽椂鍖虹殑 'Z'锛屼繚鐣欑函鍑€鐨?'YYYY-MM-DDTHH:mm' 鏍煎紡璧嬪€肩粰 input
             document.getElementById('editTaskDate').value = rawDate ? rawDate.substring(0, 16) : '';
             // 濡傛灉鍚庣鏈夌粨鏉熸椂闂村垯鏄剧ず锛屾病鏈夌殑璇濋粯璁ゅ～璧峰鏃堕棿
-            document.getElementById('editTaskEndDate').value = endDate ? endDate.substring(0, 16) : (rawDate ? rawDate.substring(0, 16) : '');
+            document.getElementById('editTaskEndDate').value = endDate ? endDate.substring(0, 16) : '';
+            // An existing event opens as an event; a task (and a new item) opens as a task.
+            document.getElementById('editTaskKind').value = endDate ? 'event' : 'task';
+            onEditKindChange();
             
             document.getElementById('editTaskModal').style.display = 'block';
+        }
+
+/** The type picker: a task has one time (its deadline), an event has a start and an end. */
+export function onEditKindChange() {
+            const lang = localStorage.getItem('appLang') || 'zh';
+            const isEvent = document.getElementById('editTaskKind').value === 'event';
+            const endInput = document.getElementById('editTaskEndDate');
+            endInput.style.display = isEvent ? '' : 'none';
+            document.getElementById('editTimeLabel').innerText = translations[lang][isEvent ? 'editTimeLabel' : 'editDueLabel'];
+            const startInput = document.getElementById('editTaskDate');
+            // Switching to an event with a start but no end: suggest one hour, which the person can change.
+            if (isEvent && startInput.value && !endInput.value) {
+                const start = new Date(startInput.value);
+                if (!isNaN(start.valueOf())) {
+                    const end = new Date(start.getTime() + 60 * 60 * 1000);
+                    const pad = (n) => String(n).padStart(2, '0');
+                    endInput.value = `${end.getFullYear()}-${pad(end.getMonth() + 1)}-${pad(end.getDate())}T${pad(end.getHours())}:${pad(end.getMinutes())}`;
+                }
+            }
         }
 
 export async function saveManualTask() {
@@ -219,6 +260,8 @@ export async function saveManualTask() {
 
             const lang = localStorage.getItem('appLang') || 'zh';
             if (!title || !startStr) return alert(translations[lang].alertEnterTaskInfo);
+            const isEvent = document.getElementById('editTaskKind').value === 'event';
+            if (isEvent && !(endStr && endStr > startStr)) return alert(translations[lang].alertEndAfterStart);
             if (taskId && !confirm(translations[lang].confirmEditTask)) return;
             
             // 缁勮绾噣鏃堕棿瀛楃涓诧紝涓嶈鍦ㄨ繖閲屽仛 new Date()
@@ -229,6 +272,9 @@ export async function saveManualTask() {
                 // 鏆傛椂鍒╃敤 description 鐨勬墿灞曟€у瓨涓€涓嬬粨鏉熸椂闂达紙绋嶅悗鍘诲悗绔敼琛ㄧ粨鏋勬渶褰诲簳锛岃繖閲屾殏鏃跺厛瀛樿捣濮嬶級
             };
             
+            // An event sends its end; a task sends null, which also turns an event that is edited into a task back into one.
+            taskData.endDate = isEvent ? endStr + ":00" : null;
+
             const currentTz = document.getElementById('timezoneSelect').value;
 
             let url = `${API_BASE}/api/tasks?userId=${getUserId()}&authToken=${encodeURIComponent(getAuthToken())}&timezone=${encodeURIComponent(currentTz)}`;
@@ -387,6 +433,17 @@ export async function toggleTaskComplete(taskId, completed, itemEl) {
             }
         }
 
+/** The details-box line for a task from the task list: "Due: ..." for a task, "Time: start-end (length)" for an event. */
+export function taskTimeLine(t, lang) {
+            if (!t.dueDate) return `${lang === 'zh' ? '截止: ' : 'Due: '}${t.localDueDate}`;
+            return timeLine(t.dueDate, t.endDate, lang);
+        }
+
+/** The shorter line under a task's name in the list: just the span for an event. */
+export function taskRowTime(t, lang) {
+            return (t.endDate && spanText(t.dueDate, t.endDate)) || taskTimeLine(t, lang);
+        }
+
 export async function loadTasks(timezone) {
             const taskListEl = document.getElementById('taskList');
             const lang = localStorage.getItem('appLang') || 'zh';
@@ -406,7 +463,7 @@ export async function loadTasks(timezone) {
                     const { title: transTitle, description: transDesc } = taskDisplayText(t, lang);
                     const item = document.createElement('div');
                     item.className = 'task-item' + (t.completed ? ' completed' : '');
-                    item.addEventListener('click', () => showModal(transTitle, t.localDueDate, transDesc, t.id, t.color || '', null, t.dueDate || t.localDueDate));
+                    item.addEventListener('click', () => showModal(transTitle, taskTimeLine(t, lang), transDesc, t.id, t.color || '', null, t.dueDate || t.localDueDate, t.endDate));
 
                     const checkbox = document.createElement('input');
                     checkbox.type = 'checkbox';
@@ -421,7 +478,7 @@ export async function loadTasks(timezone) {
                     titleEl.innerText = transTitle;
                     const dateEl = document.createElement('div');
                     dateEl.className = 'date';
-                    dateEl.innerText = `Due: ${t.localDueDate}`;
+                    dateEl.innerText = taskRowTime(t, lang);
                     body.appendChild(titleEl);
                     body.appendChild(dateEl);
 
