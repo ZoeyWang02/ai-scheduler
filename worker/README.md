@@ -34,7 +34,7 @@ Tests:
 npm test                  # unit tests: time zones, ICS, import, documents, chat prompt, rhythm analysis, buddy XP, hashing
 npm run typecheck
 npm run smoke             # end-to-end API checks against the running dev server (no API key needed)
-npm run smoke:ai          # document import, chat and translate end to end with a fake LLM and a throw-away database
+npm run smoke:ai          # document import, chat, translate and both-language task titles end to end with a fake LLM and a throw-away database
 node scripts/mock-stack.mjs   # keep that fake-LLM stack running (http://127.0.0.1:8790) for browser testing
 ```
 

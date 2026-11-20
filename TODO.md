@@ -68,6 +68,17 @@ Acceptance: a scanned syllabus PDF and a PNG of a timetable each produce a previ
       in `worker/src/importers.ts`) to `UnifiedImportService` / `AiService`.
 - [ ] Treat an empty `timezone` parameter as the default (the Worker does; the page asks with `timezone=` for a moment
       after a Google sign-in).
+- [ ] Task titles in both languages (`tasks.i18n`, `POST /api/ai/translate-tasks`) exist only in the Worker. The Java
+      backend has no `i18n` column and ignores the field, so with Java tasks are shown as written (as before).
+
+### Task titles in both languages: what is not covered yet
+Tasks made by adding one by hand, editing one, or applying an AI plan are translated when they are saved (one AI request
+per save). Everything else is still shown as written:
+- [ ] Tasks created before this change.
+- [ ] Tasks from an import (`.ics`, `.json`, Canvas, a document read by the AI). A document import could return both
+      languages in the same AI request that reads the document.
+- [ ] Course names and class locations (`course_events`).
+- [ ] A one-off "translate my existing tasks" button for old tasks.
 
 ## 4. Improvements noticed
 

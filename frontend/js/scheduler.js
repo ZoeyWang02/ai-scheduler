@@ -3,7 +3,8 @@ import { state } from './state.js';
 import { translations } from './i18n.js';
 import { escapeHtml, getUtcOffsetLabel, linkify, showToast } from './utils.js';
 import { celebrateBuddyProgress, renderBuddyMoodBadge, renderBuddyStatus } from './buddy.js';
-import { getActiveAnalysisPeriod, loadLifestyleAnalysis, translateDynamicText } from './analytics.js';
+import { getActiveAnalysisPeriod, loadLifestyleAnalysis, taskDisplayText } from './analytics.js';
+import { translateTasks } from './taskTranslate.js';
 import { addAuthParams, getAuthToken, getUserId, requireUser } from './auth.js';
 import { refreshUserScopedViews } from './app.js';
 import { toggleTranslate, triggerAutoAiPlanner } from './chat.js';
@@ -56,8 +57,7 @@ export async function loadTimezones(defaultTimezone) {
 
 export function taskToCalendarEvent(task) {
             const lang = localStorage.getItem('appLang') || 'zh';
-            const transTitle = translateDynamicText(task.title, 'title', lang);
-            const transDesc = translateDynamicText(task.description, 'desc', lang);
+            const { title: transTitle, description: transDesc } = taskDisplayText(task, lang);
 
             let evColor = task.color || '#3b82f6';
             if ((task.title.includes('[AI]') || task.title.includes('[智能规划]')) && !task.color) evColor = '#8b5cf6';
@@ -193,10 +193,13 @@ export function showModal(title, date, desc, taskId, color, courseId = null, raw
             document.getElementById('taskModal').style.display = 'block';
         }
 
+/** The title as the edit box shows it: without the planner's "[AI] " tag. */
+const editBoxTitle = (title) => title.replace('[AI] ', '').replace('[智能] ', '');
+
 export function openEditModal(taskId = null, title = '', desc = '', rawDate = '', endDate = '') {
             if (!requireUser()) return;
             document.getElementById('editTaskId').value = taskId || '';
-            document.getElementById('editTaskName').value = title.replace('[AI] ', '').replace('[智能] ', '');
+            document.getElementById('editTaskName').value = editBoxTitle(title);
             document.getElementById('editTaskDesc').value = desc;
             
             // 鍥炴樉鏃讹紝涓㈠純甯︽椂鍖虹殑 'Z'锛屼繚鐣欑函鍑€鐨?'YYYY-MM-DDTHH:mm' 鏍煎紡璧嬪€肩粰 input
@@ -227,15 +230,28 @@ export async function saveManualTask() {
             };
             
             const currentTz = document.getElementById('timezoneSelect').value;
-            
+
             let url = `${API_BASE}/api/tasks?userId=${getUserId()}&authToken=${encodeURIComponent(getAuthToken())}&timezone=${encodeURIComponent(currentTz)}`;
             let method = 'POST';
             if (taskId) {
                 url = `${API_BASE}/api/tasks/${taskId}?authToken=${encodeURIComponent(getAuthToken())}&timezone=${encodeURIComponent(currentTz)}`;
                 method = 'PUT';
             }
-            
+
+            const saveButton = document.querySelector('#editTaskModal [data-click="saveManualTask"]');
+            if (saveButton) saveButton.disabled = true; // the translation below takes a moment; do not save twice
             try {
+                // An edit that leaves the text as it was shown keeps the task's original text and translations.
+                // Anything else is new text, so the AI writes its other-language version now.
+                const existing = taskId ? (state.lastLoadedTasks || []).find(t => String(t.id) === String(taskId)) : null;
+                const shown = existing ? taskDisplayText(existing, lang) : null;
+                if (shown && title === editBoxTitle(shown.title) && desc === (shown.description || '').trim()) {
+                    taskData.title = existing.title;
+                    taskData.description = existing.description;
+                } else {
+                    taskData.i18n = (await translateTasks([{ title, description: desc }]))[0];
+                }
+
                 const res = await fetch(url, {
                     method: method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(taskData)
                 });
@@ -247,6 +263,7 @@ export async function saveManualTask() {
                     showToast(translations[lang].taskSavedToast, 'success');
                 } else showToast(translations[lang].alertSaveFailed, 'error');
             } catch (e) { showToast(translations[lang].alertNetworkError, 'error'); }
+            finally { if (saveButton) saveButton.disabled = false; }
         }
 
 export async function deleteCourse(courseId) {
@@ -386,8 +403,7 @@ export async function loadTasks(timezone) {
 
                 taskListEl.innerHTML = '';
                 tasks.forEach(t => {
-                    const transTitle = translateDynamicText(t.title, 'title', lang);
-                    const transDesc = translateDynamicText(t.description, 'desc', lang);
+                    const { title: transTitle, description: transDesc } = taskDisplayText(t, lang);
                     const item = document.createElement('div');
                     item.className = 'task-item' + (t.completed ? ' completed' : '');
                     item.addEventListener('click', () => showModal(transTitle, t.localDueDate, transDesc, t.id, t.color || '', null, t.dueDate || t.localDueDate));

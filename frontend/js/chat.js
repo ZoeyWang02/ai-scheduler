@@ -9,6 +9,7 @@ import { buildImportRow, confirmImportRequest, describeImportPreview, importResu
 import { refreshUserScopedViews } from './app.js';
 import { addMessage, deleteConversation, getConversation, loadConversations, updateMessage } from './chatHistory.js';
 import { AssistantRequestError, chatComplete, describeAiError, hasOwnKey, translateWithOwnKey } from './llmClient.js';
+import { translateTasks } from './taskTranslate.js';
 
 import { pixelIcon } from './pixelIcons.js';
 
@@ -251,6 +252,7 @@ export async function syncSelectedTasks(btn) {
             btn.innerText = translations[lang].syncing;
             btn.disabled = true;
 
+            const newTasks = [];
             for (const item of checkedItems) {
                 if (item.dataset.action === 'delete') {
                     if (item.dataset.taskId) {
@@ -258,7 +260,7 @@ export async function syncSelectedTasks(btn) {
                     }
                     continue;
                 }
-                const taskData = {
+                newTasks.push({
                     title: "[AI] " + item.dataset.title,
                     description: buildTaskDescription({
                         description: item.dataset.description,
@@ -267,9 +269,15 @@ export async function syncSelectedTasks(btn) {
                         lang
                     }),
                     dueDate: item.dataset.date || new Date().toISOString()
-                };
+                });
+            }
 
-                const currentTz = document.getElementById('timezoneSelect').value;
+            // One AI request writes the other-language version of every new task, so the calendar reads right in either language.
+            const bothLanguages = await translateTasks(newTasks);
+            const currentTz = document.getElementById('timezoneSelect').value;
+
+            for (const [index, taskData] of newTasks.entries()) {
+                taskData.i18n = bothLanguages[index];
 
                 await fetch(`${API_BASE}/api/tasks?userId=${getUserId()}&authToken=${encodeURIComponent(getAuthToken())}&timezone=${encodeURIComponent(currentTz)}`, {
                     method: 'POST',

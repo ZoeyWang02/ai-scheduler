@@ -83,7 +83,11 @@ export async function startMockStack({ mockPort = DEFAULT_MOCK_PORT, workerPort 
       const prompt = system?.content ?? "";
       let content;
       if (mode === "prose") content = "I could not find any dates in this document.";
-      else if (prompt.startsWith("You are a translator")) content = "  Hello, this is translated.  ";
+      else if (prompt.startsWith("You translate task titles")) {
+        // The task translator: answers every item with its text marked "<to>:", empty text stays empty.
+        const items = JSON.parse(user?.content ?? "[]");
+        content = JSON.stringify(items.map((i) => ({ title: i.title ? `${i.to}:${i.title}` : "", description: i.description ? `${i.to}:${i.description}` : "" })));
+      } else if (prompt.startsWith("You are a translator")) content = "  Hello, this is translated.  ";
       else if (prompt.startsWith("你是一个翻译助手")) content = "你好，这是译文。";
       else if (prompt.includes("UIUC academic assistant") || prompt.includes("UIUC的学术助理")) content = `Here is a plan for you.\n${CHAT_PLAN}`;
       else content = `Sure, here you go:\n${REPLY}`;

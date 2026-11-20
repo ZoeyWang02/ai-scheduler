@@ -142,6 +142,56 @@ try {
   check("a failed translation is a 500 the UI can report", r.status === 500 && /Translation failed/.test(r.body), JSON.stringify(r));
   setMode("ok");
 
+  // ---- tasks in both languages --------------------------------------------------------------------------------
+  console.log("\ntask translations");
+  seen.length = 0;
+  const askItems = [{ to: "en", title: "发送邮件给老师", description: "写清楚问题" }, { to: "zh", title: "Study for the quiz", description: "" }];
+  r = await call("POST", "/api/ai/translate-tasks", { json: { authToken: user.token, items: askItems } });
+  check("translate-tasks answers every item in order (200)", r.status === 200 && r.body.items.length === 2 && r.body.items[0].title === "en:发送邮件给老师" && r.body.items[0].description === "en:写清楚问题" && r.body.items[1].title === "zh:Study for the quiz" && r.body.items[1].description === "", JSON.stringify(r));
+  check("one model call (the rate-limited main model plus the fallback), a low temperature, and the items in the prompt", seen.length === 2 && seen.at(-1).temperature === 0.2 && seen.at(-1).user.includes("发送邮件给老师"));
+  r = await call("POST", "/api/ai/translate-tasks", { json: { authToken: "bad", items: askItems } });
+  check("a bad token is rejected (401)", r.status === 401, JSON.stringify(r));
+  r = await call("POST", "/api/ai/translate-tasks", { json: { authToken: user.token, items: [] } });
+  check("no items is a 400", r.status === 400);
+  r = await call("POST", "/api/ai/translate-tasks", { json: { authToken: user.token, items: Array.from({ length: 41 }, () => askItems[0]) } });
+  check("more than 40 items is a 400", r.status === 400);
+  r = await call("POST", "/api/ai/translate-tasks", { json: { authToken: user.token, items: [{ to: "fr", title: "x", description: "" }] } });
+  check("an unknown target language is a 400", r.status === 400);
+  r = await call("POST", "/api/ai/translate-tasks", { json: { authToken: user.token, items: [{ to: "en", title: "x".repeat(301), description: "" }] } });
+  check("a title over 300 characters is a 400", r.status === 400);
+  setMode("prose");
+  r = await call("POST", "/api/ai/translate-tasks", { json: { authToken: user.token, items: askItems } });
+  check("a reply that is not a translation is a 502 (the task is then saved untranslated)", r.status === 502, JSON.stringify(r));
+  setMode("broken");
+  r = await call("POST", "/api/ai/translate-tasks", { json: { authToken: user.token, items: askItems } });
+  check("a failing model is a 502", r.status === 502, JSON.stringify(r));
+  setMode("ok");
+
+  const both = { zh: { title: "发送邮件给老师", description: "写清楚问题" }, en: { title: "Email the teacher", description: "Be specific" } };
+  r = await call("POST", "/api/tasks", { query: q, json: { title: "发送邮件给老师", description: "写清楚问题", dueDate: "2027-11-20T10:00:00", i18n: both } });
+  check("a task can be created with both languages (200)", r.status === 200 && r.body.i18n && r.body.i18n.en.title === "Email the teacher", JSON.stringify(r.body));
+  const bilingualId = r.body.id;
+  r = await call("GET", "/api/tasks", { query: q });
+  const readBack = () => r.body.find((t) => t.id === bilingualId);
+  check("the list returns both languages with the original title", readBack().title === "发送邮件给老师" && readBack().i18n.zh.description === "写清楚问题" && readBack().i18n.en.description === "Be specific");
+  const task = (extra) => ({ query: { ...q, authToken: user.token }, json: { title: "发送邮件给老师", description: "写清楚问题", dueDate: "2027-11-21T10:00:00", ...extra } });
+  await call("PUT", `/api/tasks/${bilingualId}`, task({}));
+  r = await call("GET", "/api/tasks", { query: q });
+  check("an edit that leaves the text alone (a new time) keeps the translations", readBack().i18n && readBack().i18n.en.title === "Email the teacher" && readBack().dueDate === "2027-11-21T10:00");
+  await call("PUT", `/api/tasks/${bilingualId}`, task({ title: "给老师发邮件" }));
+  r = await call("GET", "/api/tasks", { query: q });
+  check("changing the text without new translations drops the stale ones", readBack().title === "给老师发邮件" && readBack().i18n === null, JSON.stringify(readBack()));
+  await call("PUT", `/api/tasks/${bilingualId}`, task({ title: "给老师发邮件", i18n: { zh: { title: "给老师发邮件", description: "写清楚问题" }, en: { title: "Write to the teacher", description: "" } } }));
+  r = await call("GET", "/api/tasks", { query: q });
+  check("an edit that sends new translations stores them", readBack().i18n && readBack().i18n.en.title === "Write to the teacher");
+  await call("PUT", `/api/tasks/${bilingualId}`, task({ title: "给老师发邮件", i18n: null }));
+  r = await call("GET", "/api/tasks", { query: q });
+  check("sending i18n: null clears them", readBack().i18n === null);
+  r = await call("POST", "/api/tasks", { query: q, json: { title: "Bad shape", i18n: { fr: { title: "x", description: "" } } } });
+  check("translations that are not zh/en pairs are ignored, not an error", r.status === 200 && r.body.i18n === null, JSON.stringify(r.body));
+  r = await call("POST", "/api/tasks", { query: q, json: { title: "Too long", i18n: { en: { title: "y".repeat(301), description: "" } } } });
+  check("translations over the length limit are ignored too", r.status === 200 && r.body.i18n === null);
+
   // ---- bring your own key: the Worker only prepares prompts, the browser talks to the provider ---------------
   console.log("\nbring your own key (prompts only)");
   seen.length = 0;

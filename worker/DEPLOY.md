@@ -108,6 +108,7 @@ string, which is also why persistent Workers Logs are left off in `wrangler.json
 | Task | Command |
 |---|---|
 | Deploy a change | `npx wrangler deploy` |
+| Task titles in both languages (`0005_task_i18n.sql`) | apply the migration **before** deploying the new Worker: `npx wrangler d1 migrations apply plantriz --remote` (it adds one nullable column, so the old Worker keeps working meanwhile) |
 | New database migration | add `migrations/000N_name.sql`, then `npx wrangler d1 migrations apply plantriz --remote` |
 | Live logs | `npx wrangler tail` |
 | Roll back a bad deploy | `npx wrangler rollback` |

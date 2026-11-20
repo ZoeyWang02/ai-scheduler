@@ -1,7 +1,7 @@
 import { state } from './state.js';
 import { translations } from './i18n.js';
 import { escapeHtml } from './utils.js';
-import { translateDynamicText } from './analytics.js';
+import { taskDisplayText } from './analytics.js';
 import { getBuddyGreeting, getChatAvatarSrc, BUDDY_MOOD_ICON, STUDY_BUDDIES, buddyDisplayName } from './buddy.js';
 import { showModal, toggleTaskComplete } from './scheduler.js';
 
@@ -127,8 +127,7 @@ function renderAgendaZone(dict, metrics) {
     } else {
         const lang = localStorage.getItem('appLang') || 'zh';
         agenda.forEach(({ t }) => {
-            const transTitle = translateDynamicText(t.title, 'title', lang);
-            const transDesc = translateDynamicText(t.description, 'desc', lang);
+            const { title: transTitle, description: transDesc } = taskDisplayText(t, lang);
             const row = document.createElement('div');
             row.className = 'tb-task';
             row.addEventListener('click', () =>

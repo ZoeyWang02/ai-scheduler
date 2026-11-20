@@ -3,6 +3,7 @@ import { state } from './state.js';
 import { translations } from './i18n.js';
 import { addAuthParams } from './auth.js';
 import { escapeHtml } from './utils.js';
+import { pickTaskText } from './taskI18n.js';
 
 import { pixelIcon } from './pixelIcons.js';
 export function openLifePanelModal() {
@@ -43,6 +44,13 @@ export function translateDynamicText(text, type, lang) {
                 if (lang === 'zh') return text.replace(/(?:Nexus|PlanTriz) subtask, estimated: ([\d.]+) hrs/, 'PlanTriz 生成子任务，预计耗时 $1 小时');
             }
             return text;
+        }
+
+/** A task's title and description as the interface language shows them: its saved translation when it has one
+ *  (see taskI18n.js), otherwise the text as written; the "[AI]" tag and the generated-subtask line follow the language either way. */
+export function taskDisplayText(task, lang) {
+            const { title, description } = pickTaskText(task, lang);
+            return { title: translateDynamicText(title, 'title', lang), description: translateDynamicText(description, 'desc', lang) };
         }
 
 export async function loadLifestyleAnalysis(period, timezone, isSilent = false) {

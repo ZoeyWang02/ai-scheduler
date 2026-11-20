@@ -4,6 +4,7 @@ import { getChatAvatarSrc, pulseBuddyAvatar } from './buddy.js';
 import { pulseBuddyWidget, showBuddyBubble } from './buddyWidget.js';
 import { loadTasks, openEditModal } from './scheduler.js';
 import { getUserId } from './auth.js';
+import { taskDisplayText } from './analytics.js';
 
 /* "Companion reminders" — the deadline system, reframed from an alarm that
    nags into a buddy that has your back. Grounded in behavioural psychology:
@@ -67,6 +68,9 @@ function saveSnoozes(s) { localStorage.setItem(SNOOZE_KEY, JSON.stringify(s)); }
 function getOverdueSet() { return new Set(readJson(OVERDUE_KEY, '[]')); }
 function saveOverdueSet(set) { localStorage.setItem(OVERDUE_KEY, JSON.stringify([...set])); }
 
+const currentLang = () => localStorage.getItem('appLang') || 'zh';
+const shownTitle = (task) => taskDisplayText(task, currentLang()).title;
+
 function dict() {
     return translations[localStorage.getItem('appLang') || 'zh'];
 }
@@ -95,7 +99,8 @@ function snoozeTier(taskId, tierId) {
 }
 
 function fireTier(task, tier, notifiedSet) {
-    const message = fill(dict()[tier.messageKey], { title: task.title });
+    const title = shownTitle(task);
+    const message = fill(dict()[tier.messageKey], { title });
     pulseBuddyAvatar();
     pulseBuddyWidget();
 
@@ -109,7 +114,7 @@ function fireTier(task, tier, notifiedSet) {
     // OS notification is additive and stays quiet during quiet hours.
     if (tier.notifyOS && !inQuietHours()
         && typeof Notification !== 'undefined' && Notification.permission === 'granted') {
-        const notification = new Notification(task.title, { body: message, icon: getChatAvatarSrc() });
+        const notification = new Notification(title, { body: message, icon: getChatAvatarSrc() });
         notification.onclick = () => { window.focus(); openTaskDrawerIfClosed(); };
     }
 
@@ -182,7 +187,7 @@ function maybeDailyBrief() {
         msg = fill(d.briefToday, {
             salutation,
             count: todays.length,
-            title: first.task.title,
+            title: shownTitle(first.task),
             time: first.task.localDueDate.substring(11, 16),
         });
     } else {
@@ -198,10 +203,11 @@ function maybeDailyBrief() {
 
 function fireOverdue(task, overdueSet) {
     pulseBuddyWidget();
-    showBuddyBubble(fill(dict().overdueCheckin, { title: task.title }), {
+    const shown = taskDisplayText(task, currentLang());
+    showBuddyBubble(fill(dict().overdueCheckin, { title: shown.title }), {
         actions: [{
             label: dict().overdueRescheduleBtn,
-            onClick: () => openEditModal(task.id, task.title, task.description || '', task.dueDate || ''),
+            onClick: () => openEditModal(task.id, shown.title, shown.description || '', task.dueDate || ''),
         }],
     });
     overdueSet.add(String(task.id));

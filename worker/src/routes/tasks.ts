@@ -2,7 +2,7 @@ import { Hono } from "hono";
 
 import { AuthError, numberOrNull, requireToken, requireUser } from "../auth";
 import { resolveBuddyId, stateAfterToggle } from "../buddy";
-import { parsePreferences, taskById, tasksForUser } from "../db";
+import { i18nToStore, parseI18n, parsePreferences, taskById, tasksForUser } from "../db";
 import type { TaskRow } from "../db";
 import type { Env } from "../env";
 import { assertTimeZone, localToUtc, nowStored, toDisplayString, toJavaString, utcToLocal } from "../time";
@@ -13,7 +13,7 @@ const DEFAULT_TZ = "America/Chicago";
 
 /** TaskResponseDTO. */
 function toDto(task: TaskRow, timezone: string) {
-  const base = { id: task.id, title: task.title, description: task.description, color: task.color, completed: task.completed === 1 };
+  const base = { id: task.id, title: task.title, description: task.description, i18n: parseI18n(task.i18n), color: task.color, completed: task.completed === 1 };
   if (!task.due_date) return { ...base, localDueDate: "No Deadline", dueDate: null };
   const local = utcToLocal(task.due_date, timezone);
   return { ...base, localDueDate: toDisplayString(local), dueDate: toJavaString(local) };
@@ -24,6 +24,7 @@ const entity = (task: TaskRow) => ({
   id: task.id,
   title: task.title,
   description: task.description,
+  i18n: parseI18n(task.i18n),
   dueDate: task.due_date ? toJavaString(task.due_date) : null,
   completed: task.completed === 1,
   completedAt: task.completed_at ? toJavaString(task.completed_at) : null,
@@ -70,8 +71,8 @@ taskRoutes.post("/", async (c) => {
     const body = await readBody(c);
     const due = str(body.dueDate);
     const dueDate = due ? localToUtc(due, timezone) : null;
-    const result = await c.env.DB.prepare("INSERT INTO tasks (title, description, due_date, color, user_id) VALUES (?, ?, ?, ?, ?)")
-      .bind(str(body.title), str(body.description), dueDate, str(body.color), user.id).run();
+    const result = await c.env.DB.prepare("INSERT INTO tasks (title, description, due_date, color, i18n, user_id) VALUES (?, ?, ?, ?, ?, ?)")
+      .bind(str(body.title), str(body.description), dueDate, str(body.color), i18nToStore(body.i18n), user.id).run();
     return c.json(entity((await taskById(c.env.DB, result.meta.last_row_id))!));
   } catch (e) {
     if (e instanceof AuthError) return c.text(e.message, 401);
@@ -134,8 +135,13 @@ taskRoutes.put("/:id", async (c) => {
     const timezone = c.req.query("timezone") || DEFAULT_TZ;
     const due = str(body.dueDate);
     const dueDate = due ? localToUtc(due, timezone) : task.due_date;
-    await c.env.DB.prepare("UPDATE tasks SET title = ?, description = ?, due_date = ? WHERE id = ?")
-      .bind(str(body.title), str(body.description), dueDate, task.id).run();
+    const title = str(body.title);
+    const description = str(body.description);
+    // The translations belong to the text they were made from. A client that changes the text sends fresh ones
+    // (or none, when translating failed); if it sends nothing and the text did change, the old ones are stale.
+    const i18n = "i18n" in body ? i18nToStore(body.i18n) : title === task.title && description === task.description ? task.i18n ?? null : null;
+    await c.env.DB.prepare("UPDATE tasks SET title = ?, description = ?, due_date = ?, i18n = ? WHERE id = ?")
+      .bind(title, description, dueDate, i18n, task.id).run();
     return c.text("Task updated.");
   } catch (e) {
     if (e instanceof AuthError) return c.text(e.message, 403);

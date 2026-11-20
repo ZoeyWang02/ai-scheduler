@@ -1,6 +1,7 @@
 /* The assistant: chat (with the user's tasks, rhythm profile, busy times and the conversation so far) and
  * translation. Port of AiService.chat / translateText; the prompt text is the Java text, word for word. */
 
+import { parseTranslationReply, translationMessages } from "../../frontend/js/taskI18n.js";
 import { analyzeLifestyle } from "./analytics";
 import type { LifestyleAnalysis } from "./analytics";
 import { coursesForUser, tasksForUser } from "./db";
@@ -8,6 +9,8 @@ import type { Env } from "./env";
 import { chatCompletion, isLlmConfigured, LlmError } from "./llm";
 import type { ChatMessage } from "./llm";
 import { assertTimeZone, msToStored, toJavaString, utcToLocal } from "./time";
+
+export interface TranslationItem { to: string; title: string; description: string }
 
 export const MAX_HISTORY_MESSAGES = 8;
 export const MAX_HISTORY_CHARS = 1500;
@@ -162,6 +165,13 @@ export async function chatReply(env: Env, req: ChatRequest, nowMs = Date.now()):
     console.error("AI chat failed:", error instanceof Error ? error.message : error);
     return isEn ? REPLIES.failed.en : REPLIES.failed.zh;
   }
+}
+
+/** Task titles and descriptions translated in one request (see frontend/js/taskI18n.js): the answers in the order
+ *  asked, or null when the model's reply cannot be used. Throws LlmError when the model cannot be reached. */
+export async function translateTasks(env: Env, items: TranslationItem[]): Promise<{ title: string; description: string }[] | null> {
+  const reply = await chatCompletion(env, translationMessages(items), 0.2);
+  return parseTranslationReply(reply, items.length);
 }
 
 /** One piece of text, translated on request (the translate button on a chat message / task). */

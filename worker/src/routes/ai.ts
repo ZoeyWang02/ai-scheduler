@@ -1,11 +1,13 @@
 import { Hono } from "hono";
 
-import { buildChatMessages, chatReply, translateText } from "../ai";
+import { LANGUAGES, MAX_DESCRIPTION_CHARS, MAX_ITEMS, MAX_TITLE_CHARS } from "../../../frontend/js/taskI18n.js";
+import { buildChatMessages, chatReply, translateTasks, translateText } from "../ai";
+import type { TranslationItem } from "../ai";
 import { analyzeLifestyle } from "../analytics";
 import { AuthError, numberOrNull, requireToken, requireUser } from "../auth";
 import { tasksForUser } from "../db";
 import type { Env } from "../env";
-import { isLlmConfigured } from "../llm";
+import { isLlmConfigured, LlmError } from "../llm";
 import { dailyLimit, quotaMessage, takeAiAllowance } from "../quota";
 
 export const aiRoutes = new Hono<{ Bindings: Env }>();
@@ -88,6 +90,34 @@ aiRoutes.post("/translate", async (c) => {
   } catch (e) {
     if (e instanceof AuthError) return c.text(`Authentication failed: ${e.message}`, 401);
     return c.text(`Translation failed: ${(e as Error).message}`, 500);
+  }
+});
+
+/** Both-language text for new or edited tasks (a signed-in user's save; the browser asks once per save, for all
+ *  the tasks in it). People with their own API key do this in the browser and never reach here. */
+aiRoutes.post("/translate-tasks", async (c) => {
+  const body = ((await c.req.json().catch(() => ({}))) ?? {}) as Record<string, unknown>;
+  const raw = Array.isArray(body.items) ? body.items : [];
+  const items: TranslationItem[] = [];
+  for (const entry of raw) {
+    const item = (entry ?? {}) as Record<string, unknown>;
+    if (typeof item.title !== "string" || typeof item.description !== "string" || typeof item.to !== "string") return c.text("Each item needs a title, a description and a target language.", 400);
+    if (!LANGUAGES.includes(item.to) || item.title.length > MAX_TITLE_CHARS || item.description.length > MAX_DESCRIPTION_CHARS) return c.text("An item is too long or has an unknown language.", 400);
+    items.push({ to: item.to, title: item.title, description: item.description });
+  }
+  if (!items.length || items.length > MAX_ITEMS) return c.text(`Send between 1 and ${MAX_ITEMS} items.`, 400);
+  try {
+    const user = await requireToken(c.env.DB, typeof body.authToken === "string" ? body.authToken : undefined);
+    if (!isLlmConfigured(c.env)) return c.text("AI service is not configured. Set LLM_API_KEY.", 503);
+    const allowance = await takeAiAllowance(c.env, user.id);
+    if (!allowance.ok) return c.text(quotaMessage(allowance.limit), 429);
+    const translated = await translateTasks(c.env, items);
+    if (!translated) return c.text("The AI did not return a usable translation.", 502);
+    return c.json({ items: translated });
+  } catch (e) {
+    if (e instanceof AuthError) return c.text(`Authentication failed: ${e.message}`, 401);
+    if (e instanceof LlmError && e.status === 429) return c.text("The AI is busy right now. Try again in a few seconds.", 429);
+    return c.text(`Translation failed: ${(e as Error).message}`, 502);
   }
 });
 

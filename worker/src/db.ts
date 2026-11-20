@@ -1,5 +1,7 @@
 /* Typed access to the D1 tables. Rows keep the snake_case column names. */
 
+import { isValidI18n } from "../../frontend/js/taskI18n.js";
+
 export interface UserRow {
   id: number;
   email: string;
@@ -26,6 +28,7 @@ export interface TaskRow {
   user_id: number;
   color: string | null;
   import_key: string | null;
+  i18n?: string | null; // JSON text: the title and description in zh and en (see frontend/js/taskI18n.js)
 }
 
 export interface CourseRow {
@@ -60,6 +63,22 @@ export const coursesForUser = async (db: D1Database, userId: number) =>
 
 export const courseById = (db: D1Database, id: number) =>
   db.prepare("SELECT * FROM course_events WHERE id = ?").bind(id).first<CourseRow>();
+
+/** The `i18n` a client sent, ready to store: JSON text, or null when it is missing or not a valid zh/en pair. */
+export function i18nToStore(value: unknown): string | null {
+  return isValidI18n(value) ? JSON.stringify(value) : null;
+}
+
+/** A stored `i18n` for the API, or null. */
+export function parseI18n(text: string | null | undefined): Record<string, { title: string; description: string }> | null {
+  if (!text) return null;
+  try {
+    const value = JSON.parse(text);
+    return isValidI18n(value) ? value : null;
+  } catch {
+    return null;
+  }
+}
 
 export function parsePreferences(text: string | null): Record<string, unknown> | null {
   if (!text) return null;
