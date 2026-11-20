@@ -133,22 +133,46 @@ function collectCandidates(node: unknown, out: Record<string, unknown>[], depth 
   if (Array.isArray(node)) {
     for (const child of node) collectCandidates(child, out, depth + 1);
   } else if (isObject(node)) {
-    if (firstText(node, TITLE_KEYS)) out.push(node);
+    const index = out.length;
+    const isCandidate = firstText(node, TITLE_KEYS) !== null;
+    if (isCandidate) out.push(node);
     for (const child of Object.values(node)) collectCandidates(child, out, depth + 1);
+    // A node that only holds other candidates (the file's own "name" or "title", a course around its
+    // assignments) is a container, not an item.
+    if (isCandidate && out.length > index + 1) out.splice(index, 1);
   }
 }
 
-function heuristicJson(root: unknown): ParsedImport {
+/** A date in a JSON file as UTC text. With a zone ("...Z", "+02:00") it is exact; without one it is the user's local time. */
+function jsonDate(value: unknown, timeZone: string, dateOnlyTime = "00:00"): string | null {
+  if (typeof value !== "string") return null;
+  return /(Z|[+-]\d{2}:?\d{2})$/i.test(value.trim()) ? parseDateToUtc(value) : modelDateToUtc(value, timeZone, dateOnlyTime);
+}
+
+/** A task has no place field, so a place from the file goes at the end of its description. */
+const withPlace = (description: string, place: string | null | undefined) => (place && place.trim() ? `${description}
+Location: ${place.trim().slice(0, 120)}` : description);
+
+const START_KEYS = ["start", "start_at", "startTime", "start_time", "begin"];
+const END_KEYS = ["end", "end_at", "endTime", "end_time"];
+const DUE_KEYS = ["due_at", "dueDate", "due", "deadline"];
+
+function heuristicJson(root: unknown, timeZone: string): ParsedImport {
   const candidates: Record<string, unknown>[] = [];
   collectCandidates(root, candidates);
   const items: ImportItem[] = [];
   for (const candidate of candidates.slice(0, 40)) {
     const title = firstText(candidate, TITLE_KEYS);
     if (!title) continue;
-    const dueDate = parseDateToUtc(firstText(candidate, ["due_at", "dueDate", "due", "deadline", "end_at"]));
+    // Something with a start and an end after it is an event: a task row that carries its end.
+    const start = jsonDate(firstText(candidate, START_KEYS), timeZone);
+    const end = jsonDate(firstText(candidate, END_KEYS), timeZone);
+    const isEvent = start !== null && end !== null && storedToMs(end) > storedToMs(start);
+    const dueDate = isEvent ? start : jsonDate(firstText(candidate, DUE_KEYS), timeZone) ?? start ?? jsonDate(firstText(candidate, ["end_at"]), timeZone);
     items.push(item(`ai-json-${items.length + 1}`, "task", "AI cleanup", title, {
       dueDate,
-      description: "AI cleanup candidate from unknown JSON structure.",
+      end: isEvent ? end : null,
+      description: withPlace(firstText(candidate, ["description", "details", "notes"])?.trim().slice(0, 300) || "AI cleanup candidate from unknown JSON structure.", firstText(candidate, ["location", "place", "venue"])),
       confidence: dueDate ? 0.68 : 0.54,
       notes: "Unknown JSON: review before confirming. LLM cleanup can be enabled with LLM_API_KEY.",
     }));
@@ -156,20 +180,25 @@ function heuristicJson(root: unknown): ParsedImport {
   return { parser: "ai-cleanup-json", aiFallbackUsed: true, items };
 }
 
-async function aiCleanupJson(env: Env, rawText: string): Promise<ImportItem[]> {
+async function aiCleanupJson(env: Env, rawText: string, timeZone: string): Promise<ImportItem[]> {
   if (!isLlmConfigured(env)) return [];
   const system = "You normalize unknown academic JSON imports. Return only a JSON array. "
-    + 'Each item must be {"kind":"task","title":"...","description":"...","dueDate":"ISO optional","confidence":0.0}. '
-    + "Use kind=task only. Do not include markdown.";
+    + 'Each item must be {"kind":"task"|"event","title":"...","description":"...","location":"","dueDate":"ISO optional","start":"ISO","end":"ISO","confidence":0.0}. '
+    + "Use kind=task for a deadline (give dueDate) and kind=event for something with a start and an end (give start and end, keep the times exactly as written, do not convert zones). "
+    + "Ignore the file's own name, title or description. Do not include markdown.";
   const user = "Extract coursework tasks from this JSON. If uncertain, use lower confidence. JSON:\n" + rawText.slice(0, 12000);
   try {
     const reply = await chatCompletion(env, [{ role: "system", content: system }, { role: "user", content: user }], 0.1);
     const items: ImportItem[] = [];
     for (const raw of extractJsonArray(reply) ?? []) {
       if (!isObject(raw) || !text(raw.title).trim()) continue;
+      const start = raw.kind === "event" ? jsonDate(raw.start, timeZone) : null;
+      const end = start ? jsonDate(raw.end, timeZone) : null;
+      const isEvent = start !== null && end !== null && storedToMs(end) > storedToMs(start);
       items.push(item(`ai-json-${items.length + 1}`, "task", "AI cleanup", text(raw.title), {
-        dueDate: parseDateToUtc(raw.dueDate),
-        description: text(raw.description) || "AI-cleaned item from unknown JSON.",
+        dueDate: isEvent ? start : jsonDate(raw.dueDate, timeZone) ?? start,
+        end: isEvent ? end : null,
+        description: withPlace(text(raw.description) || "AI-cleaned item from unknown JSON.", text(raw.location)),
         confidence: clamp01(Number(raw.confidence), 0.7),
         notes: "AI cleanup normalized this unknown JSON item. Review before confirming.",
       }));
@@ -205,8 +234,8 @@ export async function parseStructuredFile(env: Env, fileName: string, body: stri
   }
   if (isCanvas(root)) return previewCanvas(root as unknown[]);
   if (isCoursera(root)) return previewCoursera(root as Record<string, unknown>);
-  const aiItems = await aiCleanupJson(env, body);
-  return aiItems.length ? { parser: "ai-cleanup-json", aiFallbackUsed: true, items: aiItems } : heuristicJson(root);
+  const aiItems = await aiCleanupJson(env, body, timeZone);
+  return aiItems.length ? { parser: "ai-cleanup-json", aiFallbackUsed: true, items: aiItems } : heuristicJson(root, timeZone);
 }
 
 // ---- documents (PDF / DOCX / text) read by the AI ----------------------------------------------

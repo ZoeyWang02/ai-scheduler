@@ -63,6 +63,27 @@ describe("structured files", () => {
     expect(parsed.items.map((i) => [i.id, i.kind, i.start])).toEqual([["ics-1", "course", "2026-11-16T16:00:00"], ["ics-2", "course", "2026-11-18T16:00:00"]]);
   });
 
+  it("reads generic JSON with start/end as events and due as tasks, in the user's time zone, ignoring the file's own title", async () => {
+    const file = JSON.stringify({
+      name: "Fall Break Plan", timezone: "America/Chicago",
+      items: [
+        { kind: "event", title: "Hiking trip", description: "Easy loop", location: "Maple Ridge", start: "2026-11-23T08:30:00", end: "2026-11-23T12:30:00" },
+        { kind: "task", title: "Pack", due: "2026-11-21T08:00:00" },
+        { title: "Zoned", start: "2026-11-24T10:00:00Z", end: "2026-11-24T11:00:00Z" },
+        { title: "Backwards", start: "2026-11-24T10:00:00", end: "2026-11-24T09:00:00" },
+      ],
+    });
+    const parsed = await parseStructuredFile(env(), "plan.json", file, CHI);
+    expect(parsed.items.map((i) => [i.title, i.dueDate, i.end])).toEqual([
+      ["Hiking trip", "2026-11-23T14:30:00", "2026-11-23T18:30:00"], // 08:30 Chicago = 14:30 UTC
+      ["Pack", "2026-11-21T14:00:00", null],
+      ["Zoned", "2026-11-24T10:00:00", "2026-11-24T11:00:00"],     // an explicit Z is kept as it is
+      ["Backwards", "2026-11-24T16:00:00", null],                   // an end before the start: only a deadline
+    ]);
+    expect(parsed.items[0].description).toBe("Easy loop\nLocation: Maple Ridge");
+    expect(parsed.items.some((i) => i.title === "Fall Break Plan")).toBe(false);
+  });
+
   it("falls back to a heuristic for unknown JSON when no AI is configured", async () => {
     const parsed = await parseStructuredFile(env(), "x.json", JSON.stringify({ stuff: { list: [{ title: "Read ch. 3", due: "2026-12-01T12:00:00Z" }, { name: "No date" }] } }), CHI);
     expect(parsed).toMatchObject({ parser: "ai-cleanup-json", aiFallbackUsed: true });
