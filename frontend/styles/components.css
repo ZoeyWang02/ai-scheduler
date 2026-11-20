@@ -2116,6 +2116,18 @@
             color: #8b949e !important;
         }
 
+        /* List ("Agenda") view: FullCalendar paints the hovered / clicked row near-white and the day heading
+           white, which swallows the light text. Use dark surfaces instead. */
+        [data-theme="dark"] .fc .fc-list-event:hover td,
+        [data-theme="dark"] .fc .fc-list-event:focus-within td {
+            background: #21262d !important;
+        }
+
+        [data-theme="dark"] .fc .fc-list-day > th,
+        [data-theme="dark"] .fc .fc-list-day-cushion {
+            background: #161b22 !important;
+        }
+
 
 
         [data-theme="dark"] .fc .fc-button-primary {
@@ -3446,6 +3458,18 @@
         [data-theme="stardew-night"] #authModal .auth-divider::before,
         [data-theme="stardew-night"] #authModal .auth-divider::after {
             background: #6b5a3a !important;
+        }
+
+        /* List ("Agenda") view: the hovered / clicked row and the day heading were near-white behind light text.
+           Same night-blue surfaces as the chat list rows. */
+        [data-theme="stardew-night"] .fc .fc-list-event:hover td,
+        [data-theme="stardew-night"] .fc .fc-list-event:focus-within td {
+            background: #363c5a !important;
+        }
+
+        [data-theme="stardew-night"] .fc .fc-list-day > th,
+        [data-theme="stardew-night"] .fc .fc-list-day-cushion {
+            background: #2b3048 !important;
         }
 
         [data-theme="stardew-night"] .chat-avatar {
