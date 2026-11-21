@@ -1424,6 +1424,42 @@
 
         /* The notes the app adds to a chat-made task ("From chat: ...", "Estimated: ..."): a blank line below the
            description, in the theme's muted colour. */
+        /* The app's own confirmation (askConfirm in confirmDialog.js). */
+        .confirm-dialog {
+            z-index: calc(var(--z-modal) + 10);
+        }
+
+        .confirm-dialog .modal-content {
+            width: min(440px, 90vw);
+            margin: 22vh auto 0;
+        }
+
+        .confirm-dialog-title {
+            font-weight: 700;
+            font-size: 16px;
+            color: var(--primary);
+            word-wrap: break-word;
+        }
+
+        .confirm-dialog-detail {
+            margin-top: 8px;
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--accent);
+        }
+
+        .confirm-dialog-question {
+            margin-top: 16px;
+            color: var(--text-main);
+        }
+
+        .confirm-dialog-actions {
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+            margin-top: 22px;
+        }
+
         .modal-desc-notes {
             margin-top: 1.2em;
             color: var(--text-muted);

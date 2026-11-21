@@ -12,6 +12,7 @@ import { extractDocumentText, fileExtension, isDocumentFile } from './docExtract
 import { chatComplete, describeAiError, hasOwnKey } from './llmClient.js';
 import { spanText, timeLine } from './timeSpan.js';
 import { splitDescription } from './descriptionParts.js';
+import { askConfirm } from './confirmDialog.js';
 
 import { pixelIcon } from './pixelIcons.js';
 export function taskApiUrl(timezone) {
@@ -210,7 +211,14 @@ export async function confirmAndSaveEventChange(info) {
 
             const start = localWallClock(info.event.start);
             const end = ext.kind === 'event' && info.event.end ? localWallClock(info.event.end) : null;
-            if (!confirm(`${info.event.title}\n${timeLine(start, end, lang)}\n\n${dict.confirmDragEdit}`)) { info.revert(); return; }
+            const confirmed = await askConfirm({
+                title: info.event.title,
+                detail: timeLine(start, end, lang),
+                question: dict.confirmDragEdit,
+                yes: dict.confirmYes,
+                no: dict.confirmNo
+            });
+            if (!confirmed) { info.revert(); return; }
 
             const currentTz = document.getElementById('timezoneSelect').value;
             try {
