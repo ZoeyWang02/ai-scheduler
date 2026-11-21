@@ -1460,6 +1460,21 @@
             margin-top: 22px;
         }
 
+        /* The pixel themes force white button text, so "Cancel" needs a dark fill of its own. */
+        .confirm-dialog-no {
+            background: #8a6d4b;
+            color: #fff;
+            border: none;
+            padding: 8px 16px;
+            font-weight: 600;
+            font-size: var(--text-body);
+            cursor: var(--cursor-clickable);
+        }
+
+        [data-theme="stardew-night"] .confirm-dialog-no {
+            background: #4a5073;
+        }
+
         .modal-desc-notes {
             margin-top: 1.2em;
             color: var(--text-muted);
