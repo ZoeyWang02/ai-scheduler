@@ -1422,6 +1422,17 @@
 
 
 
+        /* The notes the app adds to a chat-made task ("From chat: ...", "Estimated: ..."): a blank line below the
+           description, in the theme's muted colour. */
+        .modal-desc-notes {
+            margin-top: 1.2em;
+            color: var(--text-muted);
+        }
+
+        .modal-desc-notes:first-child {
+            margin-top: 0;
+        }
+
         #modalDescription a {
             color: var(--color-primary-text);
             text-decoration: underline;

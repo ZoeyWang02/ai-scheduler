@@ -11,6 +11,7 @@ import { toggleTranslate, triggerAutoAiPlanner } from './chat.js';
 import { extractDocumentText, fileExtension, isDocumentFile } from './docExtract.js';
 import { chatComplete, describeAiError, hasOwnKey } from './llmClient.js';
 import { spanText, timeLine } from './timeSpan.js';
+import { splitDescription } from './descriptionParts.js';
 
 import { pixelIcon } from './pixelIcons.js';
 export function taskApiUrl(timezone) {
@@ -236,7 +237,10 @@ export function showModal(title, date, desc, taskId, color, courseId = null, raw
 
             document.getElementById('modalTitle').innerText = title;
             document.getElementById('modalDate').innerText = date;
-            document.getElementById('modalDescription').innerHTML = linkify(desc) || (lang === 'zh' ? "暂无详细描述。" : "No description.");
+            const { main, notes } = splitDescription(desc);
+            document.getElementById('modalDescription').innerHTML = (main ? `<div>${linkify(main)}</div>` : '')
+                + (notes ? `<div class="modal-desc-notes">${linkify(notes)}</div>` : '')
+                || (lang === 'zh' ? "暂无详细描述。" : "No description.");
             document.getElementById('taskColorPicker').value = color || '#3b82f6';
 
             const deleteBtn = document.getElementById('deleteTaskBtn');
