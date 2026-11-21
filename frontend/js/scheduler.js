@@ -163,7 +163,7 @@ export function initCalendar(timezone) {
                         content: `<div style="font-family: Inter; padding: 4px;">
                                 <strong style="font-size: 13px;">${escapeHtml(info.event.title)}</strong><br>
                                 <div style="font-size:12px; margin-top: 2px;">${escapeHtml(when)}</div>
-                                <div style="font-size:12px; margin-top: 4px; color:#94a3b8; max-height:60px; overflow:hidden;">${linkify(desc)}</div>
+                                <div style="font-size:12px; margin-top: 4px; color:#94a3b8; max-height:60px; overflow:hidden; white-space: pre-line;">${linkify(desc)}</div>
                               </div>`,
                         allowHTML: true, interactive: true, theme: 'dark', appendTo: () => document.body, placement: 'top',
                     });
