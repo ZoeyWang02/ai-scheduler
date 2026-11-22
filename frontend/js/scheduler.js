@@ -133,10 +133,31 @@ export function courseToCalendarEvent(event) {
             };
         }
 
+/** True on a phone-sized screen (the same 640px as styles/mobile.css). */
+const isPhone = () => window.matchMedia('(max-width: 640px)').matches;
+
+/** On a phone the title gets its own row and the view buttons move under the calendar, where a thumb reaches them. */
+function toolbarsFor(phone) {
+            return phone
+                ? { headerToolbar: { left: 'prev,next', center: 'title', right: 'today' }, footerToolbar: { center: 'dayGridMonth,timeGridWeek,timeGridDay,listWeek' } }
+                : { headerToolbar: { left: 'prev,next today', center: 'title', right: 'dayGridMonth,timeGridWeek,timeGridDay,listWeek' }, footerToolbar: false };
+        }
+
 export function initCalendar(timezone) {
             const calendarEl = document.getElementById('calendar');
+            let wasPhone = isPhone();
             state.calendar = new FullCalendar.Calendar(calendarEl, {
-                initialView: 'dayGridMonth',
+                // A month grid is too cramped for a phone: start with the week as a list.
+                initialView: wasPhone ? 'listWeek' : 'dayGridMonth',
+                ...toolbarsFor(wasPhone),
+                windowResize: () => {
+                    const phone = isPhone();
+                    if (phone === wasPhone) return;
+                    wasPhone = phone;
+                    const { headerToolbar, footerToolbar } = toolbarsFor(phone);
+                    state.calendar.setOption('headerToolbar', headerToolbar);
+                    state.calendar.setOption('footerToolbar', footerToolbar);
+                },
                 // The zh-cn locale pack defaults to Monday-first; keep the existing Sunday-first grid.
                 firstDay: 0,
                 height: '100%',
@@ -147,11 +168,6 @@ export function initCalendar(timezone) {
                 allDaySlot: false,
                 eventDrop: (info) => confirmAndSaveEventChange(info),
                 eventResize: (info) => confirmAndSaveEventChange(info),
-                headerToolbar: {
-                    left: 'prev,next today',
-                    center: 'title',
-                    right: 'dayGridMonth,timeGridWeek,timeGridDay,listWeek'
-                },
                 eventSources: [
                     { url: taskApiUrl(timezone), eventDataTransform: taskToCalendarEvent },
                     { url: courseApiUrl(timezone), eventDataTransform: courseToCalendarEvent }

@@ -1,0 +1,193 @@
+/* Phones (narrow screens). Loaded last, so these rules win over the desktop ones.
+
+   What changes below 640px:
+   - the left icon rail becomes a bar along the bottom (thumb reach, and the calendar gets the full width);
+   - the task panel opens over the whole screen instead of squeezing the calendar;
+   - bigger text, a bigger assistant icon, bigger tap targets, modals that fit the screen;
+   - nothing scrolls sideways.
+   The matching calendar options (list view first, view buttons under the calendar) are in js/scheduler.js. */
+
+@media (max-width: 640px) {
+    :root {
+        --rail-h: 56px;
+        --safe-bottom: env(safe-area-inset-bottom, 0px);
+    }
+
+    html,
+    body {
+        max-width: 100%;
+        overflow-x: hidden;
+        -webkit-text-size-adjust: 100%;
+        text-size-adjust: 100%;
+    }
+
+    /* dvh follows the browser's address bar as it shows and hides, so the bottom bar is never cut off. */
+    body {
+        height: 100vh;
+        height: 100dvh;
+    }
+
+    /* Bigger type on the pixel themes: 12px is the font's grid size, fine on a desktop, small on a phone. */
+    [data-theme^="stardew"] {
+        --text-caption: 14px;
+        --text-label: 14px;
+        --text-body: 16px;
+    }
+
+    input,
+    select,
+    textarea {
+        font-size: 16px; /* anything smaller makes iOS zoom the page when a field is focused */
+    }
+
+    /* width:100% plus padding must not add up to more than the screen */
+    #iconRail,
+    #calendar-container,
+    #todayBand {
+        box-sizing: border-box;
+    }
+
+    /* ---- the rail becomes a bottom bar ---- */
+    #app-body {
+        flex-direction: column-reverse;
+    }
+
+    #iconRail {
+        width: 100%;
+        height: calc(var(--rail-h) + var(--safe-bottom));
+        flex-direction: row;
+        justify-content: space-around;
+        align-items: center;
+        padding: 0 var(--space-1) var(--safe-bottom);
+        gap: 0;
+        overflow: hidden;
+    }
+
+    [data-theme^="stardew"] #iconRail {
+        background-image: none;
+        box-shadow: inset 0 2px 0 var(--soil-700), 0 -2px 0 var(--soil-900);
+    }
+
+    .rail-mark,
+    .rail-spacer {
+        display: none;
+    }
+
+    #authGuestNav,
+    #authUserNav {
+        display: flex;
+    }
+
+    .rail-btn {
+        flex: 1 1 0;
+        min-width: 0;
+        max-width: 60px;
+        min-height: 48px;
+        padding: 0;
+    }
+
+    /* ---- the page itself ---- */
+    #calendar-container {
+        padding: var(--space-2);
+    }
+
+    #todayBand {
+        padding: var(--space-2) var(--space-3);
+        margin-bottom: var(--space-2);
+    }
+
+    .fc .fc-toolbar {
+        flex-wrap: wrap;
+        justify-content: center;
+        gap: 6px;
+    }
+
+    .fc .fc-toolbar-title {
+        font-size: 20px;
+    }
+
+    .fc .fc-button {
+        min-height: 36px;
+        padding-left: 10px;
+        padding-right: 10px;
+    }
+
+    .fc .fc-footer-toolbar {
+        margin-top: 8px;
+    }
+
+    /* ---- panels ---- */
+    /* The task panel covers the screen (above the bottom bar) instead of squeezing the calendar. */
+    .drawer {
+        position: fixed;
+        left: 0;
+        right: 0;
+        top: 0;
+        bottom: calc(var(--rail-h) + var(--safe-bottom));
+        width: 100%;
+        min-width: 0;
+        z-index: var(--z-modal);
+        transform: translateY(100%);
+        visibility: hidden;
+        transition: transform var(--motion-normal) var(--ease-standard), visibility 0s linear var(--motion-normal);
+    }
+
+    #taskDrawer.open {
+        width: 100%;
+        padding: var(--space-4);
+        transform: translateY(0);
+        visibility: visible;
+        transition: transform var(--motion-normal) var(--ease-standard), visibility 0s;
+    }
+
+    .modal-content {
+        width: calc(100vw - 24px);
+        max-width: calc(100vw - 24px);
+        max-height: 86%;
+        margin: 5vh auto;
+        padding: 20px;
+        box-sizing: border-box;
+    }
+
+    /* The chat window fills the width and sits above the bottom bar. */
+    .buddy-chat-window {
+        /* !important: a size saved from the desktop's resize handle is an inline style */
+        width: calc(100vw - 16px) !important;
+        height: min(560px, calc(100dvh - var(--rail-h) - var(--safe-bottom) - 24px)) !important;
+        max-width: calc(100vw - 16px);
+        max-height: calc(100dvh - var(--rail-h) - var(--safe-bottom) - 24px);
+    }
+
+    .close-btn {
+        right: 14px;
+        top: 14px;
+        padding: 8px;
+    }
+
+    /* centred as on the desktop (left 50% + translate), but never wider than the screen */
+    #toast-container {
+        top: 12px;
+        width: calc(100vw - 24px);
+        align-items: center;
+    }
+
+    .toast {
+        max-width: 100%;
+        box-sizing: border-box;
+        text-align: center;
+        padding: 12px 16px;
+    }
+
+    /* ---- the assistant icon ---- */
+    .buddy-widget {
+        right: 14px;
+        bottom: calc(var(--rail-h) + var(--safe-bottom) + 14px);
+        width: 68px;
+        height: 68px;
+    }
+
+    .buddy-widget-avatar {
+        width: 68px;
+        height: 68px;
+    }
+}

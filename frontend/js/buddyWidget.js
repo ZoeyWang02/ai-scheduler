@@ -33,18 +33,9 @@ function applyPosition(left, top) {
     widget.style.bottom = 'auto';
 }
 
-function snapToEdge(left, top, rect) {
-    const distLeft = left;
-    const distRight = window.innerWidth - (left + rect.width);
-    const distTop = top;
-    const distBottom = window.innerHeight - (top + rect.height);
-    const minDist = Math.min(distLeft, distRight, distTop, distBottom);
-
-    if (minDist === distLeft) left = EDGE_MARGIN;
-    else if (minDist === distRight) left = window.innerWidth - rect.width - EDGE_MARGIN;
-    else if (minDist === distTop) top = EDGE_MARGIN;
-    else top = window.innerHeight - rect.height - EDGE_MARGIN;
-
+/** Where the icon rests when it is let go: exactly where it was dropped, kept inside the screen. It used to be
+ *  pulled to the nearest edge, which made it impossible to park it anywhere else (a phone has little room). */
+function placeAfterDrop(left, top, rect) {
     return clamp(left, top, rect);
 }
 
@@ -306,6 +297,7 @@ function onPointerDown(e) {
     isDragging = false;
     document.addEventListener('pointermove', onPointerMove);
     document.addEventListener('pointerup', onPointerUp);
+    document.addEventListener('pointercancel', onPointerUp);
 }
 
 function onPointerMove(e) {
@@ -327,12 +319,13 @@ function onPointerMove(e) {
 function onPointerUp() {
     document.removeEventListener('pointermove', onPointerMove);
     document.removeEventListener('pointerup', onPointerUp);
+    document.removeEventListener('pointercancel', onPointerUp);
     if (isDragging) {
         widget.classList.remove('dragging');
         const rect = widget.getBoundingClientRect();
-        const snapped = snapToEdge(rect.left, rect.top, rect);
-        applyPosition(snapped.left, snapped.top);
-        localStorage.setItem(POSITION_KEY, JSON.stringify(snapped));
+        const placed = placeAfterDrop(rect.left, rect.top, rect);
+        applyPosition(placed.left, placed.top);
+        localStorage.setItem(POSITION_KEY, JSON.stringify(placed));
     } else {
         // No real movement happened between pointerdown and pointerup —
         // this was a plain left-click, which toggles the flyout.
