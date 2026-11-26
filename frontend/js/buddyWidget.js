@@ -297,7 +297,7 @@ function onPointerDown(e) {
     isDragging = false;
     document.addEventListener('pointermove', onPointerMove);
     document.addEventListener('pointerup', onPointerUp);
-    document.addEventListener('pointercancel', onPointerUp);
+    document.addEventListener('pointercancel', onPointerCancel);
 }
 
 function onPointerMove(e) {
@@ -319,7 +319,7 @@ function onPointerMove(e) {
 function onPointerUp() {
     document.removeEventListener('pointermove', onPointerMove);
     document.removeEventListener('pointerup', onPointerUp);
-    document.removeEventListener('pointercancel', onPointerUp);
+    document.removeEventListener('pointercancel', onPointerCancel);
     if (isDragging) {
         widget.classList.remove('dragging');
         const rect = widget.getBoundingClientRect();
@@ -332,6 +332,16 @@ function onPointerUp() {
         toggleFlyout();
     }
     setTimeout(() => { isDragging = false; }, 0);
+}
+
+function onPointerCancel() {
+    if (isDragging) {
+        onPointerUp(); // keep the icon where it got to
+        return;
+    }
+    document.removeEventListener('pointermove', onPointerMove);
+    document.removeEventListener('pointerup', onPointerUp);
+    document.removeEventListener('pointercancel', onPointerCancel);
 }
 
 export function initBuddyWidget() {
@@ -363,6 +373,11 @@ export function initBuddyWidget() {
     });
 
     widget.addEventListener('pointerdown', onPointerDown);
+    // The icon is a picture, and the browser's own "drag this picture" would take the mouse over a few pixels into a
+    // drag (it cancels the pointer), so the icon could not be moved. Only for the icon: text in the chat can be dragged.
+    widget.addEventListener('dragstart', (e) => {
+        if (e.target === widget || e.target === avatarEl) e.preventDefault();
+    });
 
     // Keyboard parity for the click-to-toggle interaction above — guarded
     // the same way onPointerDown is, so Space/Enter typed into the chat
