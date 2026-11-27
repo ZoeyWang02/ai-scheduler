@@ -13,6 +13,7 @@ import { chatComplete, describeAiError, hasOwnKey } from './llmClient.js';
 import { spanText, timeLine } from './timeSpan.js';
 import { splitDescription } from './descriptionParts.js';
 import { askConfirm } from './confirmDialog.js';
+import { calendarEventContent } from './eventContent.js';
 
 import { pixelIcon } from './pixelIcons.js';
 export function taskApiUrl(timezone) {
@@ -91,6 +92,7 @@ export function taskToCalendarEvent(task) {
                     description: transDesc,
                     color: task.color,
                     kind: isEvent ? 'event' : 'task',
+                    completed: !!task.completed,
                     // The times as the server wrote them (local, no zone), for the details box and the edit form.
                     localStart: task.dueDate,
                     localEnd: isEvent ? task.endDate : null
@@ -125,6 +127,7 @@ export function courseToCalendarEvent(event) {
                     courseId: event.id, // 涓撻棬鐨勮绋?ID 鏍囪
                     description: event.location || '',
                     kind: 'course',
+                    location: event.location || '',
                     localStart: event.start,
                     localEnd: event.end
                 },
@@ -166,6 +169,8 @@ export function initCalendar(timezone) {
                 // Tasks and events can be dragged (and events stretched); each change is confirmed first.
                 editable: true,
                 allDaySlot: false,
+                // Month and list views mark tasks, events and classes apart (see eventContent.js).
+                eventContent: (arg) => calendarEventContent(arg, translations[localStorage.getItem('appLang') || 'zh']),
                 eventDrop: (info) => confirmAndSaveEventChange(info),
                 eventResize: (info) => confirmAndSaveEventChange(info),
                 eventSources: [
@@ -277,7 +282,9 @@ export function showModal(title, date, desc, taskId, color, courseId = null, raw
                 editBtn.onclick = function () { closeModal(); openEditModal(taskId, title, desc, rawDate, rawEnd); };
             } else if (courseId) {
                 deleteBtn.style.display = 'inline-block';
-                editBtn.style.display = 'none'; // 课程暂不支持前端修改
+                editBtn.style.display = 'inline-block';
+                // for a class, `desc` is its place
+                editBtn.onclick = function () { closeModal(); openCourseEditModal(courseId, title, desc, rawDate, rawEnd); };
                 deleteBtn.onclick = function () { deleteCourse(courseId); };
             } else {
                 deleteBtn.style.display = 'none';
@@ -291,6 +298,7 @@ const editBoxTitle = (title) => title.replace('[AI] ', '').replace('[智能] ', 
 
 export function openEditModal(taskId = null, title = '', desc = '', rawDate = '', endDate = '') {
             if (!requireUser()) return;
+            setEditFormMode(null);
             document.getElementById('editTaskId').value = taskId || '';
             document.getElementById('editTaskName').value = editBoxTitle(title);
             document.getElementById('editTaskDesc').value = desc;
@@ -304,6 +312,59 @@ export function openEditModal(taskId = null, title = '', desc = '', rawDate = ''
             onEditKindChange();
             
             document.getElementById('editTaskModal').style.display = 'block';
+        }
+
+/** The edit box serves tasks / events, and (with a course id) one class session: its name, times and place. */
+function setEditFormMode(courseId) {
+            const dict = translations[localStorage.getItem('appLang') || 'zh'];
+            const isCourse = courseId !== null;
+            document.getElementById('editCourseId').value = isCourse ? courseId : '';
+            document.getElementById('editTaskKind').style.display = isCourse ? 'none' : '';
+            document.getElementById('editCourseHint').style.display = isCourse ? '' : 'none';
+            document.getElementById('editModalTitle').innerText = dict[isCourse ? 'editCourseTitle' : 'editModalTitle'];
+            document.getElementById('editTaskName').placeholder = dict[isCourse ? 'courseNamePlaceholder' : 'editTaskNamePlaceholder'];
+            document.getElementById('editTaskDesc').placeholder = dict[isCourse ? 'courseLocationPlaceholder' : 'editTaskDescPlaceholder'];
+            document.querySelector('#editTaskModal [data-click="saveManualTask"]').innerText = dict[isCourse ? 'saveCourseBtn' : 'saveTaskBtn'];
+        }
+
+export function openCourseEditModal(courseId, title, location, start, end) {
+            if (!requireUser()) return;
+            const dict = translations[localStorage.getItem('appLang') || 'zh'];
+            setEditFormMode(courseId);
+            document.getElementById('editTaskId').value = '';
+            document.getElementById('editTaskName').value = title;
+            document.getElementById('editTaskDesc').value = location || '';
+            document.getElementById('editTaskDate').value = (start || '').substring(0, 16);
+            const endInput = document.getElementById('editTaskEndDate');
+            endInput.value = (end || '').substring(0, 16);
+            endInput.style.display = '';
+            document.getElementById('editTimeLabel').innerText = dict.editTimeLabel;
+            document.getElementById('editTaskModal').style.display = 'block';
+        }
+
+async function saveCourse(courseId) {
+            const lang = localStorage.getItem('appLang') || 'zh';
+            const dict = translations[lang];
+            const title = document.getElementById('editTaskName').value.trim();
+            const location = document.getElementById('editTaskDesc').value.trim();
+            const start = document.getElementById('editTaskDate').value;
+            const end = document.getElementById('editTaskEndDate').value;
+            if (!title || !start || !end) return alert(dict.alertEnterCourseInfo);
+            if (!(end > start)) return alert(dict.alertEndAfterStart);
+            if (!await askConfirm({ title, detail: timeLine(start, end, lang), question: dict.confirmDragEdit, yes: dict.confirmYes, no: dict.confirmNo })) return;
+
+            const currentTz = document.getElementById('timezoneSelect').value;
+            try {
+                const res = await fetch(`${API_BASE}/api/courses/${courseId}?authToken=${encodeURIComponent(getAuthToken())}&timezone=${encodeURIComponent(currentTz)}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ title, location, start: start + ':00', end: end + ':00' })
+                });
+                if (!res.ok) throw new Error(String(res.status));
+                document.getElementById('editTaskModal').style.display = 'none';
+                state.calendar.refetchEvents();
+                showToast(dict.courseSavedToast, 'success');
+            } catch (e) { showToast(dict.alertSaveFailed, 'error'); }
         }
 
 /** The type picker: a task has one time (its deadline), an event has a start and an end. */
@@ -326,6 +387,8 @@ export function onEditKindChange() {
         }
 
 export async function saveManualTask() {
+            const courseId = document.getElementById('editCourseId').value;
+            if (courseId) return saveCourse(courseId);
             const taskId = document.getElementById('editTaskId').value;
             const title = document.getElementById('editTaskName').value.trim();
             const startStr = document.getElementById('editTaskDate').value;

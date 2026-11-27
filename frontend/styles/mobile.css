@@ -116,6 +116,22 @@
         margin-top: 8px;
     }
 
+    /* A phone's month cells are about 45px wide: keep the mark and the title, drop the time. */
+    .entry-month .entry-time {
+        display: none;
+    }
+
+    .entry-month .entry-meta {
+        position: absolute;
+        left: 1px;
+        top: 3px;
+    }
+
+    .entry-month .entry-title {
+        padding-left: 13px;
+        text-overflow: clip;
+    }
+
     /* ---- panels ---- */
     /* The task panel covers the screen (above the bottom bar) instead of squeezing the calendar. */
     .drawer {

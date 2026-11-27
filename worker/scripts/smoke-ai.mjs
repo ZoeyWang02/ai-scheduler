@@ -73,6 +73,22 @@ try {
   r = await call("GET", "/api/courses", { query: q });
   check("the lecture is in the course list", r.body.length === 1 && r.body[0].title === "STAT 400 lecture" && r.body[0].start === "2027-11-15T10:00");
 
+  // ---- changing a class session --------------------------------------------------------------------------------
+  const lecture = r.body[0];
+  const courseEdit = (body, token = user.token, tz = "America/Chicago") => call("PUT", `/api/courses/${lecture.id}`, { query: { authToken: token, timezone: tz }, json: body });
+  const changed = { title: "STAT 400 lecture (moved)", location: "Altgeld 314", start: "2027-11-15T11:00", end: "2027-11-15T12:15" };
+  r = await courseEdit(changed);
+  check("a class can be changed: name, place and times (200)", r.status === 200, JSON.stringify(r));
+  r = await call("GET", "/api/courses", { query: q });
+  check("the change is saved, in the user's time zone", r.body[0].title === changed.title && r.body[0].location === "Altgeld 314" && r.body[0].start === "2027-11-15T11:00" && r.body[0].end === "2027-11-15T12:15", JSON.stringify(r.body[0]));
+  check("an end before the start is refused (400)", (await courseEdit({ ...changed, end: "2027-11-15T09:00" })).status === 400);
+  check("a missing name is refused (400)", (await courseEdit({ ...changed, title: "  " })).status === 400);
+  check("a time that is not a time is refused (400)", (await courseEdit({ ...changed, start: "soon" })).status === 400);
+  check("an unknown time zone is refused (400)", (await courseEdit(changed, user.token, "Mars/Base")).status === 400);
+  check("a bad token cannot change a class (403)", (await courseEdit(changed, "bad")).status === 403);
+  check("a class that does not exist is a 404", (await call("PUT", "/api/courses/999999", { query: { authToken: user.token }, json: changed })).status === 404);
+  await courseEdit({ title: "STAT 400 lecture", location: "Everitt 2205", start: "2027-11-15T10:00", end: "2027-11-15T10:50" }); // put back for the checks below
+
   r = await call("POST", "/api/import/preview-text", { query: q, json: { fileName: "syllabus.docx", text: syllabus } });
   check("reading the same document again finds everything already added", r.body.items.every((i) => i.status === "duplicate" || i.dueDate === "2027-11-25T05:59"), JSON.stringify(r.body.items.map((i) => i.status)));
   check("(the deadline-only task with the same title and date is a duplicate too)", r.body.items.filter((i) => i.status === "duplicate").length === 3, JSON.stringify(r.body.items.map((i) => [i.title, i.status])));

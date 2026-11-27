@@ -244,6 +244,8 @@
                 data-click="closeEditTaskModal"><span class="px-ico" data-icon="close"></span></span>
             <h2 id="editModalTitle" style="margin-top:0;" data-i18n="editModalTitle">新增/编辑任务</h2>
             <input type="hidden" id="editTaskId">
+            <input type="hidden" id="editCourseId">
+            <div id="editCourseHint" class="auth-hint" style="display: none;" data-i18n="editCourseHint">只修改这一节课，其他周的同名课程不受影响。</div>
             <div style="display: flex; flex-direction: column; margin-top: 16px;">
                 <input type="text" id="editTaskName" placeholder="任务名称..." class="custom-input" data-i18n-placeholder="editTaskNamePlaceholder">
 

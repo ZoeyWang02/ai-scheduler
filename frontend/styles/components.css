@@ -889,6 +889,78 @@
             cursor: var(--cursor-clickable);
         }
 
+        /* Month and list views (eventContent.js): a task has a check box and "Due", an event or class a solid
+           square in its colour. */
+        .entry-month {
+            display: flex;
+            flex-direction: column;
+            width: 100%;
+            min-width: 0;
+            line-height: 1.35;
+        }
+
+        .entry-meta {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            min-width: 0;
+        }
+
+        .entry-month .entry-title,
+        .entry-month .entry-time {
+            overflow: hidden;
+            white-space: nowrap;
+            text-overflow: ellipsis;
+        }
+
+        .entry-time {
+            font-weight: 400;
+            opacity: 0.85;
+        }
+
+        .entry-mark {
+            flex: 0 0 auto;
+            width: 9px;
+            height: 9px;
+            box-sizing: border-box;
+        }
+
+        .entry-task .entry-mark {
+            width: 11px;
+            height: 11px;
+            border: 2px solid currentColor;
+            font-size: 9px;
+            line-height: 7px;
+            text-align: center;
+        }
+
+        .entry-done .entry-title {
+            text-decoration: line-through;
+            opacity: 0.65;
+        }
+
+        .entry-tag {
+            display: inline-block;
+            margin-right: 8px;
+            padding: 0 6px;
+            border: 2px solid currentColor;
+            font-size: var(--text-caption);
+            line-height: 1.5;
+        }
+
+        .entry-task .entry-tag {
+            border-style: dashed;
+        }
+
+        /* In the list view the coloured dot becomes a hollow box for a task. */
+        .fc .fc-list-event.fc-kind-task .fc-list-event-dot {
+            width: 6px;
+            height: 6px;
+            border-width: 3px;
+            border-radius: 0;
+            background: transparent;
+        }
+
         /* A task is a deadline, not a stretch of time: draw it with a dashed edge. Events and classes stay solid. */
         .fc-event.fc-kind-task {
             border: 1px dashed rgba(255, 255, 255, 0.85) !important;

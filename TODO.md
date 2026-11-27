@@ -81,7 +81,9 @@ and tooltip say "Due: ..." or "Time: start-end (length)". Tasks and events can b
 be stretched) after a "Are you sure?" prompt. The chat and document import make events of meetings, exams and the like
 (`kind: "event"`; an event's end is its start plus the length the user gave), and the study-rhythm analysis leaves events
 out. The chat also understands changing (`action: "update"`) and deleting what is already in the list. Not done yet:
-- [ ] Class sessions (`course_events`) cannot be edited or created by hand; they could become events in `tasks`.
+- [ ] A class session can be changed (name, place, times; `PUT /api/courses/:id`, one session at a time) but not created by
+      hand, dragged on the calendar, or changed for all weeks at once. Importing the same timetable again adds the original
+      session back next to a changed one (duplicates are matched on name and times). The Java backend has no PUT.
 
 ### Task titles in both languages: what is not covered yet
 Tasks made by adding one by hand, editing one, or applying an AI plan are translated when they are saved (one AI request
